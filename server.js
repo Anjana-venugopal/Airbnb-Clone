@@ -19,8 +19,10 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/airbnb_clo
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB connected successfully.'))
-  .catch((err) => console.error('MongoDB connection error:', err));
-
+  .catch((err) => {
+    console.error('MongoDB connection error:', err.message);
+    console.log('Server continuing to run without DB connection for debugging...');
+  });
 // ==========================================
 // 1. DATA MODELS (MODULE 1)
 // ==========================================
