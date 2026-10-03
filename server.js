@@ -13,13 +13,6 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 5001;
-import { MongoMemoryServer } from 'mongodb-memory-server';
-
-const mongod = await MongoMemoryServer.create({
-  instance: {
-    startupTimeout: 60000, // 60 seconds instead of default 10s
-  },
-});
 // Self-contained MongoDB instance
 async function startServer() {
   try {
