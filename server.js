@@ -5,7 +5,7 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-
+const JWT_SECRET = 'my_jwt_secret_key_12345';
 dotenv.config();
 
 const app = express();
@@ -101,7 +101,7 @@ export const verifyToken = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
@@ -146,11 +146,11 @@ app.post('/api/auth/register', async (req, res) => {
       role: role || 'guest'
     });
 
-    const token = jwt.sign(
-      { id: newUser._id, email: newUser.email, role: newUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+const token = jwt.sign(
+  { id: newUser._id, email: newUser.email, role: newUser.role },
+  JWT_SECRET,
+  { expiresIn: '7d' }
+);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -181,11 +181,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+const token = jwt.sign(
+  { id: user._id, email: user.email, role: user.role },
+  JWT_SECRET,
+  { expiresIn: '7d' }
+);
+
 
     res.status(200).json({
       message: 'Login successful',
