@@ -4,28 +4,40 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 dotenv.config();
 
 const app = express();
-
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Database Connection
 const PORT = process.env.PORT || 5001;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/airbnb_clone';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
-console.log('Attempting to connect to MongoDB at:', MONGO_URI);
+const mongod = await MongoMemoryServer.create({
+  instance: {
+    startupTimeout: 60000, // 60 seconds instead of default 10s
+  },
+});
+// Self-contained MongoDB instance
+async function startServer() {
+  try {
+    const mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    
+    await mongoose.connect(uri);
+    console.log('MongoDB connected successfully (in-memory test database).');
 
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5001// Give up after 5 seconds instead of hanging
-})
-  .then(() => console.log('MongoDB connected successfully.'))
-  .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
-  });
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err.message);
+  }
+}
+
+startServer();
 // ==========================================
 // 1. DATA MODELS (MODULE 1)
 // ==========================================
