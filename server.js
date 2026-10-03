@@ -17,11 +17,17 @@ app.use(express.json());
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/airbnb_clone';
 
-mongoose.connect(MONGO_URI)
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/airbnb_clone';
+
+console.log('Attempting to connect to MongoDB at:', MONGO_URI);
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000 // Give up after 5 seconds instead of hanging
+})
   .then(() => console.log('MongoDB connected successfully.'))
   .catch((err) => {
     console.error('MongoDB connection error:', err.message);
-    console.log('Server continuing to run without DB connection for debugging...');
   });
 // ==========================================
 // 1. DATA MODELS (MODULE 1)
