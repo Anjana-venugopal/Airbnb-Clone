@@ -5,37 +5,64 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-const JWT_SECRET = 'my_jwt_secret_key_12345';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
+
 dotenv.config();
 
+// ==========================================
+// 1. CONFIG & SETUP
+// ==========================================
 const app = express();
-app.use(cors());
-app.use(express.json());
-
 const PORT = process.env.PORT || 5001;
-// Self-contained MongoDB instance
-async function startServer() {
-  try {
-    const mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    
-    await mongoose.connect(uri);
-    console.log('MongoDB connected successfully (in-memory test database).');
+const JWT_SECRET = process.env.JWT_SECRET || 'my_jwt_secret_key_12345';
 
-    app.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err.message);
-  }
+// ESM directory setup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure uploads folder exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-startServer();
+// Global Middlewares
+app.use(cors());
+app.use(express.json());
+// Serve uploaded images statically at http://localhost:5001/uploads/...
+app.use('/uploads', express.static(uploadDir));
+
+// Multer Storage Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'listing-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, WEBP) are allowed.'));
+    }
+  }
+});
+
 // ==========================================
-// 1. DATA MODELS (MODULE 1)
+// 2. DATA MODELS (DAYS 1 TO 5)
 // ==========================================
 
-// User Schema (Guests and Hosts)
+// User Schema
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
@@ -49,11 +76,11 @@ export const User = mongoose.model('User', userSchema);
 const listingSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
-  category: { type: String, required: true }, // e.g. Beachfront, Cabins, Iconic cities
+  category: { type: String, required: true },
   location: { type: String, required: true },
   coordinates: {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true }
+    lat: { type: Number, default: 0 },
+    lng: { type: Number, default: 0 }
   },
   pricePerNight: { type: Number, required: true },
   maxGuests: { type: Number, required: true },
@@ -89,8 +116,18 @@ const reviewSchema = new mongoose.Schema({
 
 export const Review = mongoose.model('Review', reviewSchema);
 
+// Day 5: Wishlist Schema
+const wishlistSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  listing: { type: mongoose.Schema.Types.ObjectId, ref: 'Listing', required: true }
+}, { timestamps: true });
+
+wishlistSchema.index({ user: 1, listing: 1 }, { unique: true });
+
+export const Wishlist = mongoose.model('Wishlist', wishlistSchema);
+
 // ==========================================
-// 2. AUTHENTICATION & ROLE MIDDLEWARE
+// 3. AUTHENTICATION & ROLE MIDDLEWARE
 // ==========================================
 
 export const verifyToken = (req, res, next) => {
@@ -119,7 +156,7 @@ export const requireRole = (role) => {
 };
 
 // ==========================================
-// 3. AUTHENTICATION ROUTES
+// 4. DAY 1 & 2: AUTH & LISTINGS
 // ==========================================
 
 // Register
@@ -146,11 +183,11 @@ app.post('/api/auth/register', async (req, res) => {
       role: role || 'guest'
     });
 
-const token =  jwt.sign(
-  { id: newUser._id, email: newUser.email, role: newUser.role },
-  JWT_SECRET,
-  { expiresIn: '7d' }
-);
+    const token = jwt.sign(
+      { id: newUser._id, email: newUser.email, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -181,12 +218,11 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-const token = jwt.sign(
-  { id: user._id, email: user.email, role: user.role },
-  JWT_SECRET,
-  { expiresIn: '7d' }
-);
-
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     res.status(200).json({
       message: 'Login successful',
@@ -198,7 +234,7 @@ const token = jwt.sign(
   }
 });
 
-// Check current user profile (Protected route test)
+// Current User Profile
 app.get('/api/auth/me', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -208,20 +244,6 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
-
-// Root health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Airbnb clone API is active.' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
-
-
-// ==========================================
-// 4. LISTING ROUTES (FOUNDATION FOR DAYS 3 & 4)
-// ==========================================
 
 // Create Listing (Host only)
 app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => {
@@ -247,13 +269,13 @@ app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => 
   }
 });
 
-// Get All Listings with Search & Price Filters (Public)
+// Get All Listings with Search & Price Filters
 app.get('/api/listings', async (req, res) => {
   try {
     const { location, category, minPrice, maxPrice } = req.query;
     let query = {};
 
-    if (location) query.location = { $regex: location, $options: 'i' };
+    if (location) query.location = { $regex: location,$options: 'i' };
     if (category) query.category = category;
     if (minPrice || maxPrice) {
       query.pricePerNight = {};
@@ -268,7 +290,7 @@ app.get('/api/listings', async (req, res) => {
   }
 });
 
-// Get Single Listing (Public)
+// Get Single Listing
 app.get('/api/listings/:id', async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id).populate('host', 'name email');
@@ -280,10 +302,10 @@ app.get('/api/listings/:id', async (req, res) => {
 });
 
 // ==========================================
-// 5. DAY 3: BOOKINGS & RESERVATIONS ENGINE
+// 5. DAY 3: BOOKINGS
 // ==========================================
 
-// Create a Booking with Overlap Protection (Protected)
+// Create Booking with Collision Prevention
 app.post('/api/bookings', verifyToken, async (req, res) => {
   try {
     const { listingId, startDate, endDate } = req.body;
@@ -302,11 +324,8 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
     }
 
     const listing = await Listing.findById(listingId);
-    if (!listing) {
-      return res.status(404).json({ message: 'Listing not found.' });
-    }
+    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
 
-    // Overlap validation: newStart < existingEnd && newEnd > existingStart
     const conflict = await Booking.findOne({
       listing: listingId,
       status: 'confirmed',
@@ -330,16 +349,13 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       status: 'confirmed'
     });
 
-    res.status(201).json({
-      message: 'Booking confirmed successfully',
-      booking
-    });
+    res.status(201).json({ message: 'Booking confirmed successfully', booking });
   } catch (err) {
     res.status(500).json({ message: 'Booking failed', error: err.message });
   }
 });
 
-// Get Current User's Bookings (Protected)
+// Current User's Bookings
 app.get('/api/bookings/my-bookings', verifyToken, async (req, res) => {
   try {
     const userBookings = await Booking.find({ guest: req.user.id })
@@ -352,7 +368,7 @@ app.get('/api/bookings/my-bookings', verifyToken, async (req, res) => {
   }
 });
 
-// Cancel a Booking (Protected: User must be the guest who booked)
+// Cancel Booking
 app.patch('/api/bookings/:id/cancel', verifyToken, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -372,10 +388,10 @@ app.patch('/api/bookings/:id/cancel', verifyToken, async (req, res) => {
 });
 
 // ==========================================
-// 6. DAY 4: REVIEWS, RATINGS & HOST ANALYTICS
+// 6. DAY 4: REVIEWS & HOST ANALYTICS
 // ==========================================
 
-// Add a Review & Update Listing Average Rating (Protected)
+// Submit Review & Recalculate Rating
 app.post('/api/reviews', verifyToken, async (req, res) => {
   try {
     const { listingId, rating, comment } = req.body;
@@ -398,7 +414,6 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
       comment
     });
 
-    // Recalculate average rating for the listing
     const allListingReviews = await Review.find({ listing: listingId });
     const avgScore = allListingReviews.reduce((sum, r) => sum + r.rating, 0) / allListingReviews.length;
 
@@ -412,7 +427,7 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
   }
 });
 
-// Get All Reviews for a Listing (Public)
+// Get Reviews for Listing
 app.get('/api/reviews/listing/:listingId', async (req, res) => {
   try {
     const reviews = await Review.find({ listing: req.params.listingId })
@@ -425,7 +440,7 @@ app.get('/api/reviews/listing/:listingId', async (req, res) => {
   }
 });
 
-// Host Analytics Dashboard (Protected: Host Only)
+// Host Analytics Dashboard
 app.get('/api/host/dashboard', verifyToken, requireRole('host'), async (req, res) => {
   try {
     const hostListings = await Listing.find({ host: req.user.id });
@@ -448,3 +463,104 @@ app.get('/api/host/dashboard', verifyToken, requireRole('host'), async (req, res
     res.status(500).json({ message: 'Failed to load host dashboard', error: err.message });
   }
 });
+
+// ==========================================
+// 7. DAY 5: IMAGE UPLOADS & WISHLISTS
+// ==========================================
+
+// Upload Images for a Listing (Host Only, Up to 5 files)
+app.post('/api/listings/:id/upload', verifyToken, requireRole('host'), upload.array('images', 5), async (req, res) => {
+  try {
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
+
+    if (listing.host.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized. You do not own this listing.' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Please upload at least one image file.' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const fileUrls = req.files.map((file) => `${baseUrl}/uploads/${file.filename}`);
+
+    listing.images.push(...fileUrls);
+    await listing.save();
+
+    res.status(200).json({
+      message: 'Images uploaded successfully',
+      uploadedCount: fileUrls.length,
+      images: listing.images
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Upload failed', error: err.message });
+  }
+});
+
+// Toggle Save Listing to Wishlist (Protected)
+app.post('/api/wishlists/:listingId', verifyToken, async (req, res) => {
+  try {
+    const { listingId } = req.params;
+
+    const listing = await Listing.findById(listingId);
+    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
+
+    const existingWish = await Wishlist.findOne({ user: req.user.id, listing: listingId });
+
+    if (existingWish) {
+      await Wishlist.findByIdAndDelete(existingWish._id);
+      return res.status(200).json({ message: 'Listing removed from your wishlist.', saved: false });
+    }
+
+    const newWish = await Wishlist.create({ user: req.user.id, listing: listingId });
+    res.status(201).json({ message: 'Listing saved to your wishlist.', saved: true, item: newWish });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update wishlist', error: err.message });
+  }
+});
+
+// Get Current User's Saved Wishlist (Protected)
+app.get('/api/wishlists', verifyToken, async (req, res) => {
+  try {
+    const userWishlist = await Wishlist.find({ user: req.user.id })
+      .populate({
+        path: 'listing',
+        select: 'title category location pricePerNight rating images'
+      })
+      .sort({ createdAt: -1 });
+
+    const savedListings = userWishlist.map((w) => w.listing).filter(Boolean);
+
+    res.status(200).json({ count: savedListings.length, wishlist: savedListings });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to retrieve wishlist', error: err.message });
+  }
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Airbnb clone API is active.' });
+});
+
+// ==========================================
+// 8. DATABASE & SERVER INITIALIZATION
+// ==========================================
+async function startServer() {
+  try {
+    const mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+
+    await mongoose.connect(uri);
+    console.log('MongoDB connected successfully (in-memory test database).');
+
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/api/health`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err.message);
+  }
+}
+
+startServer();
