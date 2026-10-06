@@ -13,17 +13,17 @@ import multer from 'multer';
 dotenv.config();
 
 // ==========================================
-// 1. CONFIG & SETUP
+// 1. CONFIGURATION & DIRECTORIES
 // ==========================================
 const app = express();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'my_jwt_secret_key_12345';
 
-// ESM directory setup
+// ESM path resolution
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure uploads folder exists
+// Uploads directory
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -32,10 +32,10 @@ if (!fs.existsSync(uploadDir)) {
 // Global Middlewares
 app.use(cors());
 app.use(express.json());
-// Serve uploaded images statically at http://localhost:5001/uploads/...
+// Serve uploaded images statically
 app.use('/uploads', express.static(uploadDir));
 
-// Multer Storage Configuration
+// Multer Disk Storage Configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -48,7 +48,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -59,7 +59,7 @@ const upload = multer({
 });
 
 // ==========================================
-// 2. DATA MODELS (DAYS 1 TO 6)
+// 2. DATA MODELS (DAYS 1 TO 5)
 // ==========================================
 
 // User Schema
@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema({
 
 export const User = mongoose.model('User', userSchema);
 
-// Listing Schema (includes GeoJSON & admin moderation fields)
+// Listing Schema
 const listingSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
@@ -82,29 +82,14 @@ const listingSchema = new mongoose.Schema({
     lat: { type: Number, default: 0 },
     lng: { type: Number, default: 0 }
   },
-  locationGeo: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point'
-    },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      default: [0, 0]
-    }
-  },
   pricePerNight: { type: Number, required: true },
   maxGuests: { type: Number, required: true },
   images: [{ type: String }],
   amenities: [{ type: String }],
   host: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   rating: { type: Number, default: 0 },
-  reviewCount: { type: Number, default: 0 },
-  isBanned: { type: Boolean, default: false }
+  reviewCount: { type: Number, default: 0 }
 }, { timestamps: true });
-
-// Geospatial index for nearby search
-listingSchema.index({ locationGeo: '2dsphere' });
 
 export const Listing = mongoose.model('Listing', listingSchema);
 
@@ -131,7 +116,7 @@ const reviewSchema = new mongoose.Schema({
 
 export const Review = mongoose.model('Review', reviewSchema);
 
-// Day 5: Wishlist Schema
+// Wishlist Schema (Day 5)
 const wishlistSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   listing: { type: mongoose.Schema.Types.ObjectId, ref: 'Listing', required: true }
@@ -142,7 +127,7 @@ wishlistSchema.index({ user: 1, listing: 1 }, { unique: true });
 export const Wishlist = mongoose.model('Wishlist', wishlistSchema);
 
 // ==========================================
-// 3. AUTHENTICATION & ROLE MIDDLEWARE
+// 3. MIDDLEWARE
 // ==========================================
 
 export const verifyToken = (req, res, next) => {
@@ -249,7 +234,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Current User Profile
+// Check current user profile
 app.get('/api/auth/me', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -265,19 +250,12 @@ app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => 
   try {
     const { title, description, category, location, coordinates, pricePerNight, maxGuests, images, amenities } = req.body;
 
-    const lat = coordinates?.lat || 0;
-    const lng = coordinates?.lng || 0;
-
     const listing = await Listing.create({
       title,
       description,
       category,
       location,
-      coordinates: { lat, lng },
-      locationGeo: {
-        type: 'Point',
-        coordinates: [lng, lat]
-      },
+      coordinates: coordinates || { lat: 0, lng: 0 },
       pricePerNight,
       maxGuests,
       images: images || [],
@@ -295,7 +273,7 @@ app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => 
 app.get('/api/listings', async (req, res) => {
   try {
     const { location, category, minPrice, maxPrice } = req.query;
-    let query = { isBanned: false };
+    let query = {};
 
     if (location) query.location = { $regex: location,$options: 'i' };
     if (category) query.category = category;
@@ -324,10 +302,10 @@ app.get('/api/listings/:id', async (req, res) => {
 });
 
 // ==========================================
-// 5. DAY 3: BOOKINGS
+// 5. DAY 3: BOOKINGS ENGINE
 // ==========================================
 
-// Create Booking with Collision Prevention
+// Create Booking with Overlap Protection
 app.post('/api/bookings', verifyToken, async (req, res) => {
   try {
     const { listingId, startDate, endDate } = req.body;
@@ -377,7 +355,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
   }
 });
 
-// Current User's Bookings
+// Get Current User's Bookings
 app.get('/api/bookings/my-bookings', verifyToken, async (req, res) => {
   try {
     const userBookings = await Booking.find({ guest: req.user.id })
@@ -413,7 +391,7 @@ app.patch('/api/bookings/:id/cancel', verifyToken, async (req, res) => {
 // 6. DAY 4: REVIEWS & HOST ANALYTICS
 // ==========================================
 
-// Submit Review & Recalculate Rating
+// Submit Review
 app.post('/api/reviews', verifyToken, async (req, res) => {
   try {
     const { listingId, rating, comment } = req.body;
@@ -490,7 +468,7 @@ app.get('/api/host/dashboard', verifyToken, requireRole('host'), async (req, res
 // 7. DAY 5: IMAGE UPLOADS & WISHLISTS
 // ==========================================
 
-// Upload Images for a Listing (Host Only, Up to 5 files)
+// Upload Images for a Listing (Host Only)
 app.post('/api/listings/:id/upload', verifyToken, requireRole('host'), upload.array('images', 5), async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id);
@@ -566,103 +544,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// 8. DAY 6: GEOSPATIAL SEARCH & ADMIN PANEL
-// ==========================================
-
-// Proximity Search
-app.get('/api/listings-search/nearby', async (req, res) => {
-  try {
-    const { lng, lat, maxDistance = 50 } = req.query;
-
-    if (!lng || !lat) {
-      return res.status(400).json({ message: 'lng (longitude) and lat (latitude) are required query parameters.' });
-    }
-
-    const radiusInMeters = Number(maxDistance) * 1000;
-
-    const nearbyListings = await Listing.find({
-      isBanned: false,
-      locationGeo: {
-        $near: {
-          $geometry: {             type: 'Point',             coordinates: [parseFloat(lng), parseFloat(lat)]           },$maxDistance: radiusInMeters
-        }
-      }
-    }).populate('host', 'name email');
-
-    res.status(200).json({
-      count: nearbyListings.length,
-      radiusKm: Number(maxDistance),
-      listings: nearbyListings
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Geospatial query failed', error: err.message });
-  }
-});
-
-// Admin: System-Wide Analytics & Metrics
-app.get('/api/admin/metrics', verifyToken, requireRole('admin'), async (req, res) => {
-  try {
-    const totalUsers = await User.countDocuments();
-    const totalHosts = await User.countDocuments({ role: 'host' });
-    const totalListings = await Listing.countDocuments();
-    const activeListings = await Listing.countDocuments({ isBanned: false });
-    const totalBookings = await Booking.countDocuments();
-    
-    const allBookings = await Booking.find({ status: 'confirmed' });
-    const grossVolume = allBookings.reduce((sum, b) => sum + b.totalPrice, 0);
-
-    res.status(200).json({
-      platformUsers: totalUsers,
-      totalHosts,
-      activeProperties: activeListings,
-      delistedProperties: totalListings - activeListings,
-      totalReservations: totalBookings,
-      totalGrossVolumeINR: grossVolume
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to retrieve admin metrics', error: err.message });
-  }
-});
-
-// Admin: Manage / Delist a Listing (Ban/Unban)
-app.patch('/api/admin/listings/:id/moderate', verifyToken, requireRole('admin'), async (req, res) => {
-  try {
-    const { isBanned } = req.body;
-
-    if (typeof isBanned !== 'boolean') {
-      return res.status(400).json({ message: 'isBanned must be a boolean (true/false).' });
-    }
-
-    const listing = await Listing.findById(req.params.id);
-    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
-
-    listing.isBanned = isBanned;
-    await listing.save();
-
-    res.status(200).json({
-      message: `Listing ${isBanned ? 'banned/delisted' : 'approved/relisted'} successfully`,
-      listing
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Moderation action failed', error: err.message });
-  }
-});
-
-// Admin: View All Platform Users with Role Filtering
-app.get('/api/admin/users', verifyToken, requireRole('admin'), async (req, res) => {
-  try {
-    const { role } = req.query;
-    const filter = role ? { role } : {};
-
-    const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
-    res.status(200).json({ count: users.length, users });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to retrieve user directory', error: err.message });
-  }
-});
-
-// ==========================================
-// 9. DATABASE & SERVER INITIALIZATION
+// 8. SERVER INITIALIZATION (BOTTOM ONLY)
 // ==========================================
 async function startServer() {
   try {
