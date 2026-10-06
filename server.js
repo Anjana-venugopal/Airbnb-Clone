@@ -59,7 +59,7 @@ const upload = multer({
 });
 
 // ==========================================
-// 2. DATA MODELS (DAYS 1 TO 5)
+// 2. DATA MODELS (DAYS 1 TO 6)
 // ==========================================
 
 // User Schema
@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema({
 
 export const User = mongoose.model('User', userSchema);
 
-// Listing Schema
+// Listing Schema (includes GeoJSON & admin moderation fields)
 const listingSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
@@ -82,17 +82,30 @@ const listingSchema = new mongoose.Schema({
     lat: { type: Number, default: 0 },
     lng: { type: Number, default: 0 }
   },
+  locationGeo: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0]
+    }
+  },
   pricePerNight: { type: Number, required: true },
   maxGuests: { type: Number, required: true },
   images: [{ type: String }],
   amenities: [{ type: String }],
   host: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   rating: { type: Number, default: 0 },
-  reviewCount: { type: Number, default: 0 }
+  reviewCount: { type: Number, default: 0 },
+  isBanned: { type: Boolean, default: false }
 }, { timestamps: true });
 
-export const Listing = mongoose.model('Listing', listingSchema);
-// GeoJSON-compliant Listing Schema
+// Geospatial index for nearby search
+listingSchema.index({ locationGeo: '2dsphere' });
+
 export const Listing = mongoose.model('Listing', listingSchema);
 
 // Booking Schema
@@ -252,12 +265,19 @@ app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => 
   try {
     const { title, description, category, location, coordinates, pricePerNight, maxGuests, images, amenities } = req.body;
 
+    const lat = coordinates?.lat || 0;
+    const lng = coordinates?.lng || 0;
+
     const listing = await Listing.create({
       title,
       description,
       category,
       location,
-      coordinates: coordinates || { lat: 0, lng: 0 },
+      coordinates: { lat, lng },
+      locationGeo: {
+        type: 'Point',
+        coordinates: [lng, lat]
+      },
       pricePerNight,
       maxGuests,
       images: images || [],
@@ -275,7 +295,7 @@ app.post('/api/listings', verifyToken, requireRole('host'), async (req, res) => 
 app.get('/api/listings', async (req, res) => {
   try {
     const { location, category, minPrice, maxPrice } = req.query;
-    let query = {};
+    let query = { isBanned: false };
 
     if (location) query.location = { $regex: location,$options: 'i' };
     if (category) query.category = category;
@@ -546,17 +566,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// 8. DATABASE & SERVER INITIALIZATION
-// ==========================================
-// ==========================================
 // 8. DAY 6: GEOSPATIAL SEARCH & ADMIN PANEL
 // ==========================================
 
-// 1. Proximity Search: Find listings within a kilometer radius
-// Example: GET /api/listings/nearby?lng=76.95&lat=8.52&maxDistance=25
+// Proximity Search
 app.get('/api/listings-search/nearby', async (req, res) => {
   try {
-    const { lng, lat, maxDistance = 50 } = req.query; // maxDistance in km, default 50km
+    const { lng, lat, maxDistance = 50 } = req.query;
 
     if (!lng || !lat) {
       return res.status(400).json({ message: 'lng (longitude) and lat (latitude) are required query parameters.' });
@@ -583,7 +599,7 @@ app.get('/api/listings-search/nearby', async (req, res) => {
   }
 });
 
-// 2. Admin: System-Wide Analytics & Metrics
+// Admin: System-Wide Analytics & Metrics
 app.get('/api/admin/metrics', verifyToken, requireRole('admin'), async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
@@ -608,7 +624,7 @@ app.get('/api/admin/metrics', verifyToken, requireRole('admin'), async (req, res
   }
 });
 
-// 3. Admin: Manage / Delist a Listing (Ban/Unban)
+// Admin: Manage / Delist a Listing (Ban/Unban)
 app.patch('/api/admin/listings/:id/moderate', verifyToken, requireRole('admin'), async (req, res) => {
   try {
     const { isBanned } = req.body;
@@ -632,7 +648,7 @@ app.patch('/api/admin/listings/:id/moderate', verifyToken, requireRole('admin'),
   }
 });
 
-// 4. Admin: View All Platform Users with Role Filtering
+// Admin: View All Platform Users with Role Filtering
 app.get('/api/admin/users', verifyToken, requireRole('admin'), async (req, res) => {
   try {
     const { role } = req.query;
@@ -644,6 +660,10 @@ app.get('/api/admin/users', verifyToken, requireRole('admin'), async (req, res) 
     res.status(500).json({ message: 'Failed to retrieve user directory', error: err.message });
   }
 });
+
+// ==========================================
+// 9. DATABASE & SERVER INITIALIZATION
+// ==========================================
 async function startServer() {
   try {
     const mongoServer = await MongoMemoryServer.create();
