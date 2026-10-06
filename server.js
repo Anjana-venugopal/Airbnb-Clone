@@ -92,6 +92,8 @@ const listingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export const Listing = mongoose.model('Listing', listingSchema);
+// GeoJSON-compliant Listing Schema
+export const Listing = mongoose.model('Listing', listingSchema);
 
 // Booking Schema
 const bookingSchema = new mongoose.Schema({
@@ -546,6 +548,102 @@ app.get('/api/health', (req, res) => {
 // ==========================================
 // 8. DATABASE & SERVER INITIALIZATION
 // ==========================================
+// ==========================================
+// 8. DAY 6: GEOSPATIAL SEARCH & ADMIN PANEL
+// ==========================================
+
+// 1. Proximity Search: Find listings within a kilometer radius
+// Example: GET /api/listings/nearby?lng=76.95&lat=8.52&maxDistance=25
+app.get('/api/listings-search/nearby', async (req, res) => {
+  try {
+    const { lng, lat, maxDistance = 50 } = req.query; // maxDistance in km, default 50km
+
+    if (!lng || !lat) {
+      return res.status(400).json({ message: 'lng (longitude) and lat (latitude) are required query parameters.' });
+    }
+
+    const radiusInMeters = Number(maxDistance) * 1000;
+
+    const nearbyListings = await Listing.find({
+      isBanned: false,
+      locationGeo: {
+        $near: {
+          $geometry: {             type: 'Point',             coordinates: [parseFloat(lng), parseFloat(lat)]           },$maxDistance: radiusInMeters
+        }
+      }
+    }).populate('host', 'name email');
+
+    res.status(200).json({
+      count: nearbyListings.length,
+      radiusKm: Number(maxDistance),
+      listings: nearbyListings
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Geospatial query failed', error: err.message });
+  }
+});
+
+// 2. Admin: System-Wide Analytics & Metrics
+app.get('/api/admin/metrics', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalHosts = await User.countDocuments({ role: 'host' });
+    const totalListings = await Listing.countDocuments();
+    const activeListings = await Listing.countDocuments({ isBanned: false });
+    const totalBookings = await Booking.countDocuments();
+    
+    const allBookings = await Booking.find({ status: 'confirmed' });
+    const grossVolume = allBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+
+    res.status(200).json({
+      platformUsers: totalUsers,
+      totalHosts,
+      activeProperties: activeListings,
+      delistedProperties: totalListings - activeListings,
+      totalReservations: totalBookings,
+      totalGrossVolumeINR: grossVolume
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to retrieve admin metrics', error: err.message });
+  }
+});
+
+// 3. Admin: Manage / Delist a Listing (Ban/Unban)
+app.patch('/api/admin/listings/:id/moderate', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { isBanned } = req.body;
+
+    if (typeof isBanned !== 'boolean') {
+      return res.status(400).json({ message: 'isBanned must be a boolean (true/false).' });
+    }
+
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
+
+    listing.isBanned = isBanned;
+    await listing.save();
+
+    res.status(200).json({
+      message: `Listing ${isBanned ? 'banned/delisted' : 'approved/relisted'} successfully`,
+      listing
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Moderation action failed', error: err.message });
+  }
+});
+
+// 4. Admin: View All Platform Users with Role Filtering
+app.get('/api/admin/users', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { role } = req.query;
+    const filter = role ? { role } : {};
+
+    const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
+    res.status(200).json({ count: users.length, users });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to retrieve user directory', error: err.message });
+  }
+});
 async function startServer() {
   try {
     const mongoServer = await MongoMemoryServer.create();
