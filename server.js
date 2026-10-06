@@ -90,7 +90,7 @@ const listingSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 }
 }, { timestamps: true });
-
+listingSchema.index({ locationGeo: '2dsphere' });
 export const Listing = mongoose.model('Listing', listingSchema);
 
 // Booking Schema
@@ -542,7 +542,190 @@ app.get('/api/wishlists', verifyToken, async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Airbnb clone API is active.' });
 });
+// ==========================================
+// DAY 6: GEOSPATIAL SEARCH & ADMIN PANEL
+// ==========================================
 
+// 1. Geospatial Nearby Search (Public)
+// Query params: ?lng=76.95&lat=8.52&maxDistance=30 (distance in km)
+app.get('/api/listings-search/nearby', async (req, res) => {
+  try {
+    const { lng, lat, maxDistance = 50 } = req.query;
+
+    if (!lng || !lat) {
+      return res.status(400).json({ message: 'lng (longitude) and lat (latitude) are required.' });
+    }
+
+    const radiusInMeters = Number(maxDistance) * 1000;
+
+    const nearbyListings = await Listing.find({
+      isBanned: false,
+      locationGeo: {
+        $near: {
+          $geometry: {             type: 'Point',             coordinates: [parseFloat(lng), parseFloat(lat)]           },$maxDistance: radiusInMeters
+        }
+      }
+    }).populate('host', 'name email');
+
+    res.status(200).json({
+      count: nearbyListings.length,
+      radiusKm: Number(maxDistance),
+      listings: nearbyListings
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Geospatial search failed', error: err.message });
+  }
+});
+
+// 2. Admin System Overview & Metrics (Admin Only)
+app.get('/api/admin/metrics', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalHosts = await User.countDocuments({ role: 'host' });
+    const totalListings = await Listing.countDocuments();
+    const activeListings = await Listing.countDocuments({ isBanned: false });
+    const totalBookings = await Booking.countDocuments();
+
+    const confirmedBookings = await Booking.find({ status: 'confirmed' });
+    const grossVolume = confirmedBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+
+    res.status(200).json({
+      totalUsers,
+      totalHosts,
+      activeProperties: activeListings,
+      delistedProperties: totalListings - activeListings,
+      totalBookings,
+      grossVolumeINR: grossVolume
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to load metrics', error: err.message });
+  }
+});
+
+// 3. Admin Listing Moderation (Delist / Relist)
+app.patch('/api/admin/listings/:id/moderate', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { isBanned } = req.body;
+    if (typeof isBanned !== 'boolean') {
+      return res.status(400).json({ message: 'isBanned must be a boolean (true/false).' });
+    }
+
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) return res.status(404).json({ message: 'Listing not found.' });
+
+    listing.isBanned = isBanned;
+    await listing.save();
+
+    res.status(200).json({
+      message: `Listing ${isBanned ? 'delisted/banned' : 'relisted/approved'} successfully`,
+      listing
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Moderation failed', error: err.message });
+  }
+});
+
+// 4. Admin User Management Directory
+app.get('/api/admin/users', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { role } = req.query;
+    const filter = role ? { role } : {};
+
+    const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
+    res.status(200).json({ count: users.length, users });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to retrieve users', error: err.message });
+  }
+});
+// ==========================================
+// DAY 7: CHECKOUT & PAYMENT SIMULATION, NOTIFICATIONS
+// ==========================================
+
+// 1. Process Checkout & Payment for a Reservation
+app.post('/api/payments/checkout', verifyToken, async (req, res) => {
+  try {
+    const { bookingId, paymentMethod = 'card' } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'bookingId is required.' });
+    }
+
+    const booking = await Booking.findById(bookingId).populate('listing');
+    if (!booking) return res.status(404).json({ message: 'Booking not found.' });
+
+    if (booking.guest.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized. You can only pay for your own reservation.' });
+    }
+
+    // Check if an existing successful payment exists
+    const existingPayment = await Payment.findOne({ booking: bookingId, status: 'succeeded' });
+    if (existingPayment) {
+      return res.status(400).json({ message: 'This reservation has already been paid for.' });
+    }
+
+    // Simulate payment transaction
+    const transactionId = 'txn_' + Date.now() + Math.random().toString(36).substring(2, 7);
+
+    const payment = await Payment.create({
+      booking: booking._id,
+      user: req.user.id,
+      amount: booking.totalPrice,
+      currency: 'INR',
+      paymentMethod,
+      transactionId,
+      status: 'succeeded'
+    });
+
+    // Generate notifications for both guest and host
+    await Notification.create({
+      recipient: req.user.id,
+      title: 'Payment Successful',
+      message: `Payment of INR ${booking.totalPrice} for "${booking.listing.title}" was confirmed.`,
+      type: 'payment'
+    });
+
+    await Notification.create({
+      recipient: booking.listing.host,
+      title: 'New Paid Booking',
+      message: `A guest booked "${booking.listing.title}" from ${booking.startDate.toISOString().split('T')[0]} to ${booking.endDate.toISOString().split('T')[0]}.`,
+      type: 'booking'
+    });
+
+    res.status(201).json({
+      message: 'Payment completed successfully. Reservation secured.',
+      paymentReceipt: payment
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Checkout failed', error: err.message });
+  }
+});
+
+// 2. Fetch User Notification Inbox (Protected)
+app.get('/api/notifications', verifyToken, async (req, res) => {
+  try {
+    const userNotifications = await Notification.find({ recipient: req.user.id })
+      .sort({ createdAt: -1 });
+
+    const unreadCount = userNotifications.filter((n) => !n.read).length;
+
+    res.status(200).json({
+      unreadCount,
+      notifications: userNotifications
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to retrieve notifications', error: err.message });
+  }
+});
+
+// 3. Mark Notifications as Read
+app.patch('/api/notifications/mark-read', verifyToken, async (req, res) => {
+  try {
+    await Notification.updateMany({ recipient: req.user.id, read: false }, { read: true });
+    res.status(200).json({ message: 'All notifications marked as read.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Update failed', error: err.message });
+  }
+});
 // ==========================================
 // 8. SERVER INITIALIZATION (BOTTOM ONLY)
 // ==========================================
