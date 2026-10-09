@@ -19,8 +19,10 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('user');
           setUser(null);
         }
+      } else {
+        setUser(null);
       }
-      setLoading(false);
+      setLoading(false); // ALWAYS set loading to false so the UI renders
     };
 
     checkUserLoggedIn();
@@ -40,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
