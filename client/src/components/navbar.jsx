@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Globe, User as UserIcon, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import AuthModal from './AuthModal';
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200 w-full">
@@ -18,7 +21,7 @@ export default function Navbar() {
           <span className="text-rose-500 font-bold text-xl tracking-tight hidden sm:inline">airbnb</span>
         </Link>
 
-        {/* Search Bar Capsule */}
+        {/* Search Capsule */}
         <div className="flex items-center border border-gray-300 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition cursor-pointer text-sm font-medium">
           <span className="px-2 border-r border-gray-300">Anywhere</span>
           <span className="px-2 border-r border-gray-300">Any week</span>
@@ -28,28 +31,78 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* User Menu */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium py-2 px-3 rounded-full hover:bg-gray-100 cursor-pointer hidden md:inline">
-            Airbnb your home
-          </span>
-          <div className="p-2 rounded-full hover:bg-gray-100 cursor-pointer">
-            <Globe size={18} />
-          </div>
-          <div className="flex items-center gap-2 border border-gray-300 rounded-full py-1.5 px-3 hover:shadow-md transition cursor-pointer">
-            <Menu size={18} />
-            <div className="bg-gray-500 text-white rounded-full p-1">
-              <UserIcon size={14} />
+        {/* User Menu Capsule & Dropdown */}
+        <div className="relative">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium py-2 px-3 rounded-full hover:bg-gray-100 cursor-pointer hidden md:inline">
+              Airbnb your home
+            </span>
+            <div className="p-2 rounded-full hover:bg-gray-100 cursor-pointer">
+              <Globe size={18} />
             </div>
-            {user && (
-              <span className="text-xs font-semibold text-gray-700 ml-1">
-                {user.name.split(' ')[0]}
-              </span>
-            )}
+
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="flex items-center gap-2 border border-gray-300 rounded-full py-1.5 px-3 hover:shadow-md transition cursor-pointer"
+            >
+              <Menu size={18} />
+              <div className="bg-gray-500 text-white rounded-full p-1">
+                <UserIcon size={14} />
+              </div>
+              {user && (
+                <span className="text-xs font-semibold text-gray-700 ml-1">
+                  {user.name.split(' ')[0]}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Dropdown Menu */}
+          {isMenuOpen && (
+            <div 
+              className="absolute right-0 mt-3 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50 text-sm"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {user ? (
+                <>
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="font-semibold text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold uppercase">
+                      {user.role}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={logout}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-rose-600 font-medium"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="w-full text-left px-4 py-2 font-medium hover:bg-gray-50 text-gray-800"
+                  >
+                    Log in / Sign up
+                  </button>
+                  <div className="border-t border-gray-100 my-1"></div>
+                  <div className="px-4 py-2 text-xs text-gray-400">
+                    Airbnb Clone v1.0
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+      />
     </header>
   );
 }
