@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 const api = axios.create({
   baseURL: 'http://localhost:5001/api',
@@ -21,6 +30,13 @@ const CATEGORIES = [
   'Trending',
 ];
 
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+];
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -28,11 +44,14 @@ export default function App() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Discovery & Search States
   const [listings, setListings] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchLocation, setSearchLocation] = useState('');
   const [fetchingListings, setFetchingListings] = useState(true);
+  const [selectedListing, setSelectedListing] = useState(null);
+
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -41,7 +60,6 @@ export default function App() {
     role: 'guest',
   });
 
-  // Load User & Fetch Listings
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
@@ -72,6 +90,7 @@ export default function App() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    setSelectedListing(null);
     fetchListings(searchLocation);
   };
 
@@ -104,10 +123,43 @@ export default function App() {
     setUser(null);
   };
 
+  const calculateTotal = () => {
+    if (!startDate || !endDate || !selectedListing) return { nights: 0, total: 0 };
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = end - start;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return { nights: 0, total: 0 };
+    return {
+      nights: diffDays,
+      total: diffDays * selectedListing.pricePerNight,
+    };
+  };
+
+  const { nights, total } = calculateTotal();
+
+  const getCoordinates = (listing) => {
+    if (
+      listing?.locationGeo?.coordinates?.length === 2 &&
+      (listing.locationGeo.coordinates[0] !== 0 || listing.locationGeo.coordinates[1] !== 0)
+    ) {
+      return [listing.locationGeo.coordinates[1], listing.locationGeo.coordinates[0]];
+    }
+    return [9.9312, 76.2673];
+  };
+
+  const resolveImage = (item, index) => {
+    if (item?.images && item.images[index]) {
+      const img = item.images[index];
+      return img.startsWith('http') ? img : `http://localhost:5001${img}`;
+    }
+    return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+  };
+
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh', backgroundColor: '#ffffff' }}>
       
-      {/* 1. Header / Navbar */}
+      {/* 1. Header */}
       <header style={{
         display: 'flex',
         alignItems: 'center',
@@ -117,13 +169,15 @@ export default function App() {
         position: 'sticky',
         top: 0,
         backgroundColor: '#ffffff',
-        zIndex: 100
+        zIndex: 1000
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} 
+          onClick={() => { setSelectedListing(null); setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
+        >
           <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF385C', letterSpacing: '-0.5px' }}>airbnb</span>
         </div>
 
-        {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{
             display: 'flex',
@@ -169,7 +223,6 @@ export default function App() {
           </div>
         </form>
 
-        {/* User Pill / Actions */}
         <div>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -214,132 +267,357 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Category Filter Bar */}
-      <div style={{
-        display: 'flex',
-        gap: '24px',
-        padding: '16px 40px',
-        overflowX: 'auto',
-        borderBottom: '1px solid #f0f0f0'
-      }}>
-        {CATEGORIES.map((cat) => (
+      {/* 2. Main Content Area */}
+      {selectedListing ? (
+        /* DETAIL PAGE */
+        <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '24px 20px 60px' }}>
+          
           <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
+            onClick={() => setSelectedListing(null)}
             style={{
               background: 'none',
               border: 'none',
-              paddingBottom: '8px',
               fontSize: '14px',
-              fontWeight: selectedCategory === cat ? '700' : '500',
-              color: selectedCategory === cat ? '#000000' : '#717171',
-              borderBottom: selectedCategory === cat ? '2px solid #000000' : '2px solid transparent',
+              fontWeight: '600',
               cursor: 'pointer',
-              whiteSpace: 'nowrap'
+              color: '#222222',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
           >
-            {cat}
+            ← Back to all stays
           </button>
-        ))}
-      </div>
 
-      {/* 3. Listings Grid */}
-      <main style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px' }}>
-        {fetchingListings ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: '#717171' }}>
-            <p style={{ fontSize: '16px' }}>Loading properties...</p>
-          </div>
-        ) : listings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#222222', margin: '0 0 8px 0' }}>No exact matches found</h3>
-            <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>
-              Try changing or clearing your search filters.
-            </p>
-            <button
-              onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#222222',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
+          <h1 style={{ fontSize: '26px', fontWeight: 'bold', color: '#222222', margin: '0 0 6px 0' }}>
+            {selectedListing.title}
+          </h1>
+          <p style={{ color: '#717171', fontSize: '15px', margin: '0 0 20px 0' }}>
+            ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
+          </p>
+
+          {/* Photo Gallery Grid */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '24px'
+            display: 'flex',
+            gap: '12px',
+            width: '100%',
+            height: '400px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            marginBottom: '36px',
+            backgroundColor: '#e5e7eb'
           }}>
-            {listings.map((item) => (
-              <div
-                key={item._id}
-                style={{
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderRadius: '12px',
-                  overflow: 'hidden'
+            {/* Left Primary Hero Image */}
+            <div style={{ flex: '2', height: '100%', position: 'relative' }}>
+              <img
+                src={resolveImage(selectedListing, 0)}
+                alt="Main View"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://picsum.photos/id/1018/1000/600';
                 }}
-              >
-                {/* Image Box */}
-                <div style={{
+                style={{
                   width: '100%',
-                  paddingTop: '95%',
-                  position: 'relative',
-                  backgroundColor: '#f3f4f6',
-                  borderRadius: '12px',
-                  overflow: 'hidden'
-                }}>
-                  <img
-                    src={
-                      item.images && item.images.length > 0
-                        ? `http://localhost:5001${item.images[0]}`
-                        : 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80'
-                    }
-                    alt={item.title}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80';
-                    }}
-                  />
-                </div>
+                  height: '100%',
+                  minHeight: '400px',
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
+            </div>
 
-                {/* Details */}
-                <div style={{ marginTop: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#222222', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
-                      {item.location || 'Special Stay'}
-                    </h3>
-                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#222222' }}>
-                      ★ {item.ratingsAverage ? item.ratingsAverage.toFixed(1) : 'New'}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '14px', color: '#717171', margin: '2px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.title}
-                  </p>
-                  <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: '#222222' }}>
-                    <span style={{ fontWeight: '700' }}>₹{item.pricePerNight?.toLocaleString()}</span> night
-                  </p>
+            {/* Right Two Stacked Images */}
+            <div style={{
+              flex: '1',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              height: '100%'
+            }}>
+              <div style={{ flex: '1', height: '194px', position: 'relative', overflow: 'hidden' }}>
+                <img
+                  src={resolveImage(selectedListing, 1)}
+                  alt="Angle 2"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://picsum.photos/id/1015/600/400';
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+              </div>
+              <div style={{ flex: '1', height: '194px', position: 'relative', overflow: 'hidden' }}>
+                <img
+                  src={resolveImage(selectedListing, 2)}
+                  alt="Angle 3"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://picsum.photos/id/1019/600/400';
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />d
+              </div>
+            </div>
+          </div>
+
+          {/* Two-Column Details and Booking Card */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '60px', alignItems: 'start' }}>
+            
+            <div>
+              <div style={{ paddingBottom: '24px', borderBottom: '1px solid #ebebeb' }}>
+                <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#222222', margin: '0 0 6px 0' }}>
+                  Entire stay hosted by {selectedListing.host?.name || 'Local Host'}
+                </h2>
+                <p style={{ color: '#717171', fontSize: '15px', margin: 0 }}>
+                  {selectedListing.maxGuests} guests · Category: {selectedListing.category}
+                </p>
+              </div>
+
+              <div style={{ padding: '28px 0', borderBottom: '1px solid #ebebeb' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '10px' }}>About this space</h3>
+                <p style={{ color: '#333333', fontSize: '15px', lineHeight: '1.6', margin: 0 }}>
+                  {selectedListing.description}
+                </p>
+              </div>
+
+              {/* Map Section */}
+              <div style={{ padding: '28px 0' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Where you will be</h3>
+                <div style={{ height: '320px', width: '100%', borderRadius: '14px', overflow: 'hidden' }}>
+                  <MapContainer
+                    center={getCoordinates(selectedListing)}
+                    zoom={13}
+                    scrollWheelZoom={false}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker position={getCoordinates(selectedListing)}>
+                      <Popup>
+                        <b>{selectedListing.title}</b><br />{selectedListing.location}
+                      </Popup>
+                    </Marker>
+                  </MapContainer>
                 </div>
               </div>
+            </div>
+
+            {/* Booking Card */}
+            <div style={{
+              position: 'sticky',
+              top: '110px',
+              border: '1px solid #dddddd',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+              backgroundColor: '#ffffff'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '18px' }}>
+                <span style={{ fontSize: '22px', fontWeight: 'bold' }}>
+                  ₹{selectedListing.pricePerNight?.toLocaleString()}
+                  <span style={{ fontSize: '15px', fontWeight: 'normal', color: '#717171' }}> / night</span>
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                  ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'}
+                </span>
+              </div>
+
+              <div style={{ border: '1px solid #b0b0b0', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                  <div style={{ padding: '8px 12px', borderRight: '1px solid #b0b0b0' }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Check-in</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
+                    />
+                  </div>
+                  <div style={{ padding: '8px 12px' }}>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Checkout</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    setShowModal(true);
+                    return;
+                  }
+                  alert(`Dates ready for reservation on Day 12! Total nights: ${nights}`);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  backgroundColor: '#FF385C',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  cursor: 'pointer'
+                }}
+              >
+                {user ? 'Reserve' : 'Log in to Reserve'}
+              </button>
+
+              {nights > 0 && (
+                <div style={{ marginTop: '20px', borderTop: '1px solid #ebebeb', paddingTop: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: '#333', marginBottom: '8px' }}>
+                    <span>₹{selectedListing.pricePerNight?.toLocaleString()} x {nights} nights</span>
+                    <span>₹{total.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', borderTop: '1px solid #ebebeb', paddingTop: '12px', marginTop: '10px' }}>
+                    <span>Total before taxes</span>
+                    <span>₹{total.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+        </main>
+      ) : (
+        /* DISCOVERY GRID */
+        <>
+          <div style={{
+            display: 'flex',
+            gap: '24px',
+            padding: '16px 40px',
+            overflowX: 'auto',
+            borderBottom: '1px solid #f0f0f0'
+          }}>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  paddingBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: selectedCategory === cat ? '700' : '500',
+                  color: selectedCategory === cat ? '#000000' : '#717171',
+                  borderBottom: selectedCategory === cat ? '2px solid #000000' : '2px solid transparent',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {cat}
+              </button>
             ))}
           </div>
-        )}
-      </main>
+
+          <main style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px' }}>
+            {fetchingListings ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#717171' }}>
+                <p style={{ fontSize: '16px' }}>Loading properties...</p>
+              </div>
+            ) : listings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#222222', margin: '0 0 8px 0' }}>No exact matches found</h3>
+                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Try clearing filters.</p>
+                <button
+                  onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#222222',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: '24px'
+              }}>
+                {listings.map((item) => (
+                  <div
+                    key={item._id}
+                    onClick={() => setSelectedListing(item)}
+                    style={{
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      borderRadius: '12px',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{
+                      width: '100%',
+                      paddingTop: '95%',
+                      position: 'relative',
+                      backgroundColor: '#f3f4f6',
+                      borderRadius: '12px',
+                      overflow: 'hidden'
+                    }}>
+                      <img
+                        src={resolveImage(item, 0)}
+                        alt={item.title}
+                        onError={(e) => { e.target.src = FALLBACK_IMAGES[0]; }}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#222222', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
+                          {item.location || 'Special Stay'}
+                        </h3>
+                        <span style={{ fontSize: '14px', fontWeight: '500', color: '#222222' }}>
+                          ★ {item.ratingsAverage ? item.ratingsAverage.toFixed(1) : 'New'}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '14px', color: '#717171', margin: '2px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.title}
+                      </p>
+                      <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: '#222222' }}>
+                        <span style={{ fontWeight: '700' }}>₹{item.pricePerNight?.toLocaleString()}</span> night
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+        </>
+      )}
 
       {/* Auth Modal */}
       {showModal && (
