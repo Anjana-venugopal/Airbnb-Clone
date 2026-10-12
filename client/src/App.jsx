@@ -11,7 +11,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const api = axios.create({
-  baseURL: 'http://localhost:5001/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -30,28 +30,195 @@ const CATEGORIES = [
   'Trending',
 ];
 
-const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80',
+const DEFAULT_LISTINGS = [
+  {
+    _id: 'l1',
+    title: 'Heritage Backwater Villa',
+    description: 'Authentic Kerala wooden architecture on serene backwaters with private boat access and lush views.',
+    category: 'Lakefront',
+    location: 'Alleppey',
+    pricePerNight: 4500,
+    maxGuests: 4,
+    ratingsAverage: 4.9,
+    host: { name: 'Priya Nair' },
+    images: [
+      'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [76.3388, 9.4981] },
+  },
+  {
+    _id: 'l2',
+    title: 'Cliffside Sunset Cottage',
+    description: 'Panoramic Arabian Sea sunsets perched directly atop the scenic North Cliff walking trail.',
+    category: 'Beachfront',
+    location: 'Varkala',
+    pricePerNight: 3200,
+    maxGuests: 2,
+    ratingsAverage: 4.8,
+    host: { name: 'Rahul V' },
+    images: [
+      'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [76.7163, 8.7379] },
+  },
+  {
+    _id: 'l3',
+    title: 'Misty Hills Tea Plantation Cabin',
+    description: 'Cool mountain retreat surrounded by green tea fields, waking up to crisp cloudscapes.',
+    category: 'Cabins',
+    location: 'Munnar',
+    pricePerNight: 5200,
+    maxGuests = 6,
+    ratingsAverage: 4.95,
+    host: { name: 'Eldo George' },
+    images: [
+      'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [77.0595, 10.0889] },
+  },
+  {
+    _id: 'l4',
+    title: 'Portuguese Courtyard Villa',
+    description: 'Restored colonial heritage home with private plunge pool, lush palms, and heritage tiled verandas.',
+    category: 'Trending',
+    location: 'Goa',
+    pricePerNight: 7800,
+    maxGuests: 6,
+    ratingsAverage: 4.7,
+    host: { name: 'Maria Fernandez' },
+    images: [
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [73.8567, 15.2993] },
+  },
+  {
+    _id: 'l5',
+    title: 'Himalayan Cedar Wood Chalet',
+    description: 'Cozy alpine timber chalet with panoramic views of snow-capped Pir Panjal peaks.',
+    category: 'Cabins',
+    location: 'Manali',
+    pricePerNight: 6100,
+    maxGuests: 4,
+    ratingsAverage: 5.0,
+    host: { name: 'Karan Thakur' },
+    images: [
+      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [77.1892, 32.2432] },
+  },
+  {
+    _id: 'l6',
+    title: 'Royal Haveli Courtyard Suite',
+    description: 'Intricate sandstone jali windows, hand-carved pillars, and traditional rooftop dining over the Pink City.',
+    category: 'Iconic cities',
+    location: 'Jaipur',
+    pricePerNight: 4900,
+    maxGuests: 3,
+    ratingsAverage: 4.85,
+    host: { name: 'Aditya Singh' },
+    images: [
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [75.7873, 26.9124] },
+  },
+  {
+    _id: 'l7',
+    title: 'Valley View Glass Studio',
+    description: 'Modern minimalist studio looking directly over deep pine valleys with majestic sunset views.',
+    category: 'Trending',
+    location: 'Kasauli',
+    pricePerNight: 6800,
+    maxGuests: 2,
+    ratingsAverage: 4.9,
+    host: { name: 'Simran K' },
+    images: [
+      'https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [76.9649, 30.9013] },
+  },
+  {
+    _id: 'l8',
+    title: 'Rainforest Eco Treehouse',
+    description: 'Handcrafted wooden treehouse nestled inside dense coffee groves with fresh mountain streams.',
+    category: 'Countryside',
+    location: 'Coorg',
+    pricePerNight: 4300,
+    maxGuests: 2,
+    ratingsAverage: 4.75,
+    host: { name: 'Muthappa C' },
+    images: [
+      'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [75.7382, 12.3375] },
+  },
+  {
+    _id: 'l9',
+    title: 'Colonial Hilltop Stone Villa',
+    description: 'Quaint British-era stone bungalow enveloped by morning fog and strawberry gardens.',
+    category: 'Countryside',
+    location: 'Mahabaleshwar',
+    pricePerNight: 5600,
+    maxGuests: 5,
+    ratingsAverage: 4.88,
+    host: { name: 'Rohan Deshmukh' },
+    images: [
+      'https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1600573472550-8090b5e0745e?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [73.6602, 17.9307] },
+  },
+  {
+    _id: 'l10',
+    title: 'Dal Lake Cedar Wood Houseboat',
+    description: 'Hand-carved floating cedar palace featuring Kashmiri silk carpets and mountain reflections.',
+    category: 'Lakefront',
+    location: 'Srinagar',
+    pricePerNight: 8500,
+    maxGuests: 4,
+    ratingsAverage: 4.96,
+    host: { name: 'Bashir Ahmed' },
+    images: [
+      'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
+    ],
+    locationGeo: { type: 'Point', coordinates: [74.8723, 34.0837] },
+  },
 ];
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : { name: 'Demo Guest', role: 'guest' };
+  });
+
   const [showModal, setShowModal] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Discovery State
-  const [listings, setListings] = useState([]);
+  const [listings, setListings] = useState(DEFAULT_LISTINGS);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchLocation, setSearchLocation] = useState('');
-  const [fetchingListings, setFetchingListings] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // Booking State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [bookingGuests, setBookingGuests] = useState(1);
@@ -60,17 +227,27 @@ export default function App() {
   const [myBookings, setMyBookings] = useState([]);
   const [showBookingsModal, setShowBookingsModal] = useState(false);
 
-  // Reviews State
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState([
+    {
+      _id: 'r1',
+      rating: 5,
+      comment: 'Breathtaking views, spotless amenities, and wonderful host hospitality. Will return!',
+      user: { name: 'Ananya' },
+      createdAt: new Date().toISOString(),
+    },
+    {
+      _id: 'r2',
+      rating: 5,
+      comment: 'Exactly as shown in the photos. Peaceful ambiance and close to local spots.',
+      user: { name: 'Vikram' },
+      createdAt: new Date().toISOString(),
+    },
+  ]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewFeedback, setReviewFeedback] = useState(null);
 
-  // Day 14: Host Listing Creator State
   const [showHostModal, setShowHostModal] = useState(false);
-  const [hostSubmitting, setHostSubmitting] = useState(false);
-  const [hostError, setHostError] = useState('');
   const [newListing, setNewListing] = useState({
     title: '',
     description: '',
@@ -84,7 +261,6 @@ export default function App() {
     longitude: 76.2673,
   });
 
-  // Auth Form State
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -93,89 +269,35 @@ export default function App() {
   });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.clear();
-      }
-    }
     fetchListings();
   }, [selectedCategory]);
 
-  useEffect(() => {
-    if (selectedListing) {
-      fetchListingReviews(selectedListing._id);
-    }
-  }, [selectedListing]);
-
   const fetchListings = async (search = searchLocation) => {
-    setFetchingListings(true);
     try {
       const params = {};
       if (selectedCategory !== 'All') params.category = selectedCategory;
       if (search.trim()) params.location = search.trim();
 
       const res = await api.get('/listings', { params });
-      setListings(res.data.listings || []);
+      if (res.data?.listings && res.data.listings.length > 0) {
+        setListings(res.data.listings);
+        return;
+      }
     } catch (err) {
-      console.error('Failed to load listings:', err);
-    } finally {
-      setFetchingListings(false);
+      // Backend not running / GitHub pages static mode -> filter fallback list
     }
-  };
 
-  const fetchListingReviews = async (listingId) => {
-    try {
-      const res = await api.get(`/reviews/${listingId}`);
-      setReviews(res.data.reviews || []);
-    } catch (err) {
-      setReviews([]);
+    let filtered = DEFAULT_LISTINGS;
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter((item) => item.category === selectedCategory);
     }
-  };
-
-  const handleReviewSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      setShowModal(true);
-      return;
+    if (search.trim()) {
+      filtered = filtered.filter((item) =>
+        item.location.toLowerCase().includes(search.trim().toLowerCase()) ||
+        item.title.toLowerCase().includes(search.trim().toLowerCase())
+      );
     }
-    if (!reviewComment.trim()) return;
-
-    setReviewSubmitting(true);
-    setReviewFeedback(null);
-
-    try {
-      await api.post('/reviews', {
-        listingId: selectedListing._id,
-        rating: Number(reviewRating),
-        comment: reviewComment.trim(),
-      });
-
-      setReviewFeedback({ type: 'success', msg: 'Review published successfully!' });
-      setReviewComment('');
-      fetchListingReviews(selectedListing._id);
-      fetchListings();
-    } catch (err) {
-      setReviewFeedback({
-        type: 'error',
-        msg: err.response?.data?.message || 'Could not submit review.',
-      });
-    } finally {
-      setReviewSubmitting(false);
-    }
-  };
-
-  const fetchUserBookings = async () => {
-    if (!user) return;
-    try {
-      const res = await api.get('/bookings/my-bookings');
-      setMyBookings(res.data.bookings || []);
-      setShowBookingsModal(true);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to fetch bookings');
-    }
+    setListings(filtered);
   };
 
   const handleSearchSubmit = (e) => {
@@ -184,94 +306,89 @@ export default function App() {
     fetchListings(searchLocation);
   };
 
-  const handleAuthSubmit = async (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    const endpoint = isLogin ? '/auth/login' : '/auth/register';
-    const payload = isLogin
-      ? { email: formData.email, password: formData.password }
-      : formData;
+    if (!reviewComment.trim()) return;
 
     try {
-      const res = await api.post(endpoint, payload);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setUser(res.data.user);
-      setShowModal(false);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Authentication failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setMyBookings([]);
-  };
-
-  const handleOpenHostModal = () => {
-    if (!user) {
-      setShowModal(true);
-      return;
-    }
-    if (user.role !== 'host') {
-      alert('Your current account has the "guest" role. Please log in or register with the "host" role to publish listings.');
-      return;
-    }
-    setHostError('');
-    setShowHostModal(true);
-  };
-
-  const handleCreateListing = async (e) => {
-    e.preventDefault();
-    setHostSubmitting(true);
-    setHostError('');
-
-    try {
-      const images = [];
-      if (newListing.imageUrl1.trim()) images.push(newListing.imageUrl1.trim());
-      if (newListing.imageUrl2.trim()) images.push(newListing.imageUrl2.trim());
-
-      const payload = {
-        title: newListing.title,
-        description: newListing.description,
-        category: newListing.category,
-        location: newListing.location,
-        pricePerNight: Number(newListing.pricePerNight),
-        maxGuests: Number(newListing.maxGuests),
-        images,
-        locationGeo: {
-          type: 'Point',
-          coordinates: [Number(newListing.longitude), Number(newListing.latitude)],
-        },
-      };
-
-      await api.post('/listings', payload);
-      setShowHostModal(false);
-      setNewListing({
-        title: '',
-        description: '',
-        category: 'Lakefront',
-        location: '',
-        pricePerNight: '',
-        maxGuests: 2,
-        imageUrl1: '',
-        imageUrl2: '',
-        latitude: 9.9312,
-        longitude: 76.2673,
+      await api.post('/reviews', {
+        listingId: selectedListing._id,
+        rating: Number(reviewRating),
+        comment: reviewComment.trim(),
       });
-      fetchListings();
-      alert('Your property is now listed live on Airbnb!');
     } catch (err) {
-      setHostError(err.response?.data?.message || 'Failed to publish listing. Check all fields.');
-    } finally {
-      setHostSubmitting(false);
+      // Keep working in offline/static mode
     }
+
+    const newRev = {
+      _id: 'rev_' + Date.now(),
+      rating: Number(reviewRating),
+      comment: reviewComment.trim(),
+      user: { name: user?.name || 'You' },
+      createdAt: new Date().toISOString(),
+    };
+    setReviews([newRev, ...reviews]);
+    setReviewFeedback({ type: 'success', msg: 'Review published successfully!' });
+    setReviewComment('');
+  };
+
+  const handleBookingSubmit = async (e) => {
+    e.preventDefault();
+    setBookingFeedback(null);
+
+    if (!startDate || !endDate) {
+      setBookingFeedback({ type: 'error', msg: 'Please select both check-in and checkout dates.' });
+      return;
+    }
+
+    setBookingLoading(true);
+    setTimeout(() => {
+      const newBooking = {
+        _id: 'bk_' + Date.now(),
+        listing: selectedListing,
+        startDate,
+        endDate,
+        guests: Number(bookingGuests),
+        totalPrice: total,
+        status: 'confirmed',
+      };
+      setMyBookings([newBooking, ...myBookings]);
+      setBookingFeedback({
+        type: 'success',
+        msg: `Booking confirmed! Reservation ID: ${newBooking._id.slice(-6)}`,
+      });
+      setStartDate('');
+      setEndDate('');
+      setBookingLoading(false);
+    }, 600);
+  };
+
+  const handleCreateListing = (e) => {
+    e.preventDefault();
+    const created = {
+      _id: 'cust_' + Date.now(),
+      title: newListing.title,
+      description: newListing.description,
+      category: newListing.category,
+      location: newListing.location,
+      pricePerNight: Number(newListing.pricePerNight),
+      maxGuests: Number(newListing.maxGuests),
+      ratingsAverage: 5.0,
+      host: { name: user?.name || 'Local Host' },
+      images: [
+        newListing.imageUrl1.trim() || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+        newListing.imageUrl2.trim() || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80',
+      ],
+      locationGeo: {
+        type: 'Point',
+        coordinates: [Number(newListing.longitude), Number(newListing.latitude)],
+      },
+    };
+
+    setListings([created, ...listings]);
+    setShowHostModal(false);
+    alert('Your stay is now published live!');
   };
 
   const calculateTotal = () => {
@@ -289,51 +406,6 @@ export default function App() {
 
   const { nights, total } = calculateTotal();
 
-  const handleBookingSubmit = async (e) => {
-    e.preventDefault();
-    setBookingFeedback(null);
-
-    if (!user) {
-      setShowModal(true);
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      setBookingFeedback({ type: 'error', msg: 'Please select both dates.' });
-      return;
-    }
-
-    if (nights <= 0) {
-      setBookingFeedback({ type: 'error', msg: 'Checkout date must be after check-in date.' });
-      return;
-    }
-
-    setBookingLoading(true);
-    try {
-      const res = await api.post('/bookings', {
-        listingId: selectedListing._id,
-        startDate,
-        endDate,
-        guests: Number(bookingGuests),
-        totalPrice: total,
-      });
-
-      setBookingFeedback({
-        type: 'success',
-        msg: `Booking confirmed! Reservation ID: ${res.data.booking._id.slice(-6)}`,
-      });
-      setStartDate('');
-      setEndDate('');
-    } catch (err) {
-      setBookingFeedback({
-        type: 'error',
-        msg: err.response?.data?.message || 'Listing is already booked for these dates.',
-      });
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
   const getCoordinates = (listing) => {
     if (
       listing?.locationGeo?.coordinates?.length === 2 &&
@@ -342,14 +414,6 @@ export default function App() {
       return [listing.locationGeo.coordinates[1], listing.locationGeo.coordinates[0]];
     }
     return [9.9312, 76.2673];
-  };
-
-  const resolveImage = (item, index) => {
-    if (item?.images && item.images[index]) {
-      const img = item.images[index];
-      return img.startsWith('http') ? img : `http://localhost:5001${img}`;
-    }
-    return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
   };
 
   return (
@@ -421,7 +485,7 @@ export default function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span
-            onClick={handleOpenHostModal}
+            onClick={() => setShowHostModal(true)}
             style={{
               fontSize: '14px',
               fontWeight: '600',
@@ -434,62 +498,22 @@ export default function App() {
             Airbnb your home
           </span>
 
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={fetchUserBookings}
-                style={{
-                  padding: '7px 14px',
-                  backgroundColor: '#f7f7f7',
-                  color: '#222',
-                  border: '1px solid #dddddd',
-                  borderRadius: '20px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                My Bookings
-              </button>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#222222' }}>
-                {user.name.split(' ')[0]} ({user.role})
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                style={{
-                  padding: '7px 14px',
-                  backgroundColor: '#ffffff',
-                  color: '#717171',
-                  border: '1px solid #dddddd',
-                  borderRadius: '20px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Log out
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setShowModal(true); setError(''); }}
-              style={{
-                padding: '9px 18px',
-                backgroundColor: '#FF385C',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '24px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Log in / Sign up
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowBookingsModal(true)}
+            style={{
+              padding: '7px 14px',
+              backgroundColor: '#f7f7f7',
+              color: '#222',
+              border: '1px solid #dddddd',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            My Bookings ({myBookings.length})
+          </button>
         </div>
       </header>
 
@@ -519,7 +543,7 @@ export default function App() {
             {selectedListing.title}
           </h1>
           <p style={{ color: '#717171', fontSize: '15px', margin: '0 0 20px 0' }}>
-            ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} ({reviews.length} reviews) · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
+            ★ {selectedListing.ratingsAverage?.toFixed(1) || '4.9'} ({reviews.length} reviews) · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
           </p>
 
           {/* Photo Gallery */}
@@ -535,42 +559,29 @@ export default function App() {
           }}>
             <div style={{ flex: '2', height: '100%', position: 'relative' }}>
               <img
-                src={resolveImage(selectedListing, 0)}
+                src={selectedListing.images[0]}
                 alt="Main View"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = FALLBACK_IMAGES[0];
-                }}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
             </div>
             <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
               <div style={{ flex: '1', position: 'relative', overflow: 'hidden' }}>
                 <img
-                  src={resolveImage(selectedListing, 1)}
+                  src={selectedListing.images[1] || selectedListing.images[0]}
                   alt="Angle 2"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_IMAGES[1];
-                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               </div>
               <div style={{ flex: '1', position: 'relative', overflow: 'hidden' }}>
                 <img
-                  src={resolveImage(selectedListing, 2)}
+                  src={selectedListing.images[2] || selectedListing.images[0]}
                   alt="Angle 3"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = FALLBACK_IMAGES[2];
-                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Two-Column Details & Reservation Widget */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '60px', alignItems: 'start' }}>
             <div>
               <div style={{ paddingBottom: '24px', borderBottom: '1px solid #ebebeb' }}>
@@ -623,7 +634,7 @@ export default function App() {
               {/* Reviews */}
               <div style={{ padding: '28px 0' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 20px 0' }}>
-                  ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} · {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+                  ★ {selectedListing.ratingsAverage?.toFixed(1) || '4.9'} · {reviews.length} Reviews
                 </h3>
 
                 <div style={{
@@ -641,8 +652,8 @@ export default function App() {
                       borderRadius: '8px',
                       fontSize: '13px',
                       marginBottom: '12px',
-                      backgroundColor: reviewFeedback.type === 'success' ? '#ecfdf5' : '#fee2e2',
-                      color: reviewFeedback.type === 'success' ? '#047857' : '#b91c1c'
+                      backgroundColor: '#ecfdf5',
+                      color: '#047857'
                     }}>
                       {reviewFeedback.msg}
                     </div>
@@ -683,14 +694,12 @@ export default function App() {
                         border: '1px solid #d1d5db',
                         fontSize: '14px',
                         outline: 'none',
-                        boxSizing: 'border-box',
-                        resize: 'vertical'
+                        boxSizing: 'border-box'
                       }}
                     />
 
                     <button
                       type="submit"
-                      disabled={reviewSubmitting}
                       style={{
                         marginTop: '10px',
                         padding: '8px 18px',
@@ -703,51 +712,47 @@ export default function App() {
                         cursor: 'pointer'
                       }}
                     >
-                      {reviewSubmitting ? 'Posting...' : 'Submit Review'}
+                      Submit Review
                     </button>
                   </form>
                 </div>
 
-                {reviews.length === 0 ? (
-                  <p style={{ color: '#717171', fontSize: '14px' }}>No reviews yet. Be the first to leave one!</p>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    {reviews.map((r) => (
-                      <div key={r._id} style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                          <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            backgroundColor: '#e5e7eb',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 'bold',
-                            color: '#4b5563'
-                          }}>
-                            {r.user?.name ? r.user.name[0].toUpperCase() : 'U'}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  {reviews.map((r) => (
+                    <div key={r._id} style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          backgroundColor: '#e5e7eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          color: '#4b5563'
+                        }}>
+                          {r.user?.name ? r.user.name[0].toUpperCase() : 'G'}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                            {r.user?.name || 'Guest'}
                           </div>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
-                              {r.user?.name || 'Guest'}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                              {'★'.repeat(r.rating)} · {new Date(r.createdAt || Date.now()).toLocaleDateString()}
-                            </div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                            {'★'.repeat(r.rating)} · {new Date(r.createdAt).toLocaleDateString()}
                           </div>
                         </div>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>
-                          {r.comment}
-                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>
+                        {r.comment}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Booking Card */}
+            {/* Sticky Reservation Widget */}
             <div style={{
               position: 'sticky',
               top: '110px',
@@ -763,7 +768,7 @@ export default function App() {
                   <span style={{ fontSize: '15px', fontWeight: 'normal', color: '#717171' }}> / night</span>
                 </span>
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                  ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'}
+                  ★ {selectedListing.ratingsAverage?.toFixed(1) || '4.9'}
                 </span>
               </div>
 
@@ -837,7 +842,7 @@ export default function App() {
                     cursor: 'pointer'
                   }}
                 >
-                  {bookingLoading ? 'Checking Availability...' : user ? 'Reserve' : 'Log in to Reserve'}
+                  {bookingLoading ? 'Reserving...' : 'Reserve'}
                 </button>
               </form>
 
@@ -888,99 +893,69 @@ export default function App() {
           </div>
 
           <main style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px' }}>
-            {fetchingListings ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: '#717171' }}>
-                <p style={{ fontSize: '16px' }}>Loading properties...</p>
-              </div>
-            ) : listings.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#222222', margin: '0 0 8px 0' }}>No exact matches found</h3>
-                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Click "Airbnb your home" above to create one!</p>
-                <button
-                  onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: '24px'
+            }}>
+              {listings.map((item) => (
+                <div
+                  key={item._id}
+                  onClick={() => { setSelectedListing(item); setBookingFeedback(null); }}
                   style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#222222',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
                   }}
                 >
-                  Reset Filters
-                </button>
-              </div>
-            ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                gap: '24px'
-              }}>
-                {listings.map((item) => (
-                  <div
-                    key={item._id}
-                    onClick={() => { setSelectedListing(item); setBookingFeedback(null); }}
-                    style={{
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      borderRadius: '12px',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div style={{
-                      width: '100%',
-                      paddingTop: '95%',
-                      position: 'relative',
-                      backgroundColor: '#f3f4f6',
-                      borderRadius: '12px',
-                      overflow: 'hidden'
-                    }}>
-                      <img
-                        src={resolveImage(item, 0)}
-                        alt={item.title}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = FALLBACK_IMAGES[0];
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ marginTop: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#222222', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
-                          {item.location || 'Special Stay'}
-                        </h3>
-                        <span style={{ fontSize: '14px', fontWeight: '500', color: '#222222' }}>
-                          ★ {item.ratingsAverage ? item.ratingsAverage.toFixed(1) : 'New'}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '14px', color: '#717171', margin: '2px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.title}
-                      </p>
-                      <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: '#222222' }}>
-                        <span style={{ fontWeight: '700' }}>₹{item.pricePerNight?.toLocaleString()}</span> night
-                      </p>
-                    </div>
+                  <div style={{
+                    width: '100%',
+                    paddingTop: '95%',
+                    position: 'relative',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
+                  }}>
+                    <img
+                      src={item.images[0]}
+                      alt={item.title}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#222222', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
+                        {item.location}
+                      </h3>
+                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#222222' }}>
+                        ★ {item.ratingsAverage?.toFixed(1) || '4.9'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '14px', color: '#717171', margin: '2px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.title}
+                    </p>
+                    <p style={{ fontSize: '14px', margin: '6px 0 0 0', color: '#222222' }}>
+                      <span style={{ fontWeight: '700' }}>₹{item.pricePerNight?.toLocaleString()}</span> night
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </main>
         </>
       )}
 
-      {/* 3. Day 14: Host Property Publishing Modal */}
+      {/* Host Publishing Modal */}
       {showHostModal && (
         <div
           onClick={() => setShowHostModal(false)}
@@ -1001,187 +976,96 @@ export default function App() {
               borderRadius: '16px',
               padding: '28px',
               width: '90%',
-              maxWidth: '540px',
-              maxHeight: '85vh',
-              overflowY: 'auto',
+              maxWidth: '520px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>
-                Airbnb Your Home
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowHostModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
-              >
-                ✕
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>Airbnb Your Home</h2>
+              <button onClick={() => setShowHostModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
             </div>
 
-            {hostError && (
-              <div style={{
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                marginBottom: '16px'
-              }}>
-                {hostError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateListing} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Title</label>
+            <form onSubmit={handleCreateListing} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                required
+                placeholder="Stay Title"
+                value={newListing.title}
+                onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
+                style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+              />
+              <textarea
+                required
+                rows="2"
+                placeholder="Description"
+                value={newListing.description}
+                onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
+                style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <select
+                  value={newListing.category}
+                  onChange={(e) => setNewListing({ ...newListing, category: e.target.value })}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}
+                >
+                  {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Coconut Palms Lakefront Villa"
-                  value={newListing.title}
-                  onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  placeholder="City / Location"
+                  value={newListing.location}
+                  onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                 />
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Description</label>
-                <textarea
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <input
+                  type="number"
                   required
-                  rows="3"
-                  placeholder="Describe what makes your space special..."
-                  value={newListing.description}
-                  onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  placeholder="Price / Night (₹)"
+                  value={newListing.pricePerNight}
+                  onChange={(e) => setNewListing({ ...newListing, pricePerNight: e.target.value })}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                 />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Category</label>
-                  <select
-                    value={newListing.category}
-                    onChange={(e) => setNewListing({ ...newListing, category: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', backgroundColor: '#fff' }}
-                  >
-                    {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Location / City</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Wayanad"
-                    value={newListing.location}
-                    onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Price Per Night (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    min="100"
-                    placeholder="3500"
-                    value={newListing.pricePerNight}
-                    onChange={(e) => setNewListing({ ...newListing, pricePerNight: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Max Guests</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="30"
-                    value={newListing.maxGuests}
-                    onChange={(e) => setNewListing({ ...newListing, maxGuests: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Primary Photo URL (Optional)</label>
                 <input
-                  type="url"
-                  placeholder="https://..."
-                  value={newListing.imageUrl1}
-                  onChange={(e) => setNewListing({ ...newListing, imageUrl1: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  type="number"
+                  required
+                  placeholder="Max Guests"
+                  value={newListing.maxGuests}
+                  onChange={(e) => setNewListing({ ...newListing, maxGuests: e.target.value })}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                 />
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Secondary Photo URL (Optional)</label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={newListing.imageUrl2}
-                  onChange={(e) => setNewListing({ ...newListing, imageUrl2: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newListing.latitude}
-                    onChange={(e) => setNewListing({ ...newListing, latitude: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newListing.longitude}
-                    onChange={(e) => setNewListing({ ...newListing, longitude: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
+              <input
+                type="url"
+                placeholder="Photo URL (Optional)"
+                value={newListing.imageUrl1}
+                onChange={(e) => setNewListing({ ...newListing, imageUrl1: e.target.value })}
+                style={{ padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+              />
               <button
                 type="submit"
-                disabled={hostSubmitting}
                 style={{
-                  marginTop: '10px',
-                  padding: '14px',
+                  padding: '12px',
                   backgroundColor: '#FF385C',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
                   fontWeight: 'bold',
-                  fontSize: '15px',
                   cursor: 'pointer'
                 }}
               >
-                {hostSubmitting ? 'Publishing...' : 'Publish Listing'}
+                Publish Stay
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* 4. My Bookings Modal */}
+      {/* Bookings Modal */}
       {showBookingsModal && (
         <div
           onClick={() => setShowBookingsModal(false)}
@@ -1202,200 +1086,30 @@ export default function App() {
               borderRadius: '16px',
               padding: '28px',
               width: '90%',
-              maxWidth: '540px',
+              maxWidth: '500px',
               maxHeight: '80vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+              overflowY: 'auto'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>
-                Your Reservations
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowBookingsModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
-              >
-                ✕
-              </button>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>Your Reservations</h2>
+              <button onClick={() => setShowBookingsModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
             </div>
-
             {myBookings.length === 0 ? (
-              <p style={{ color: '#717171', fontSize: '14px', textAlign: 'center', margin: '40px 0' }}>
-                You have no upcoming trips booked yet.
-              </p>
+              <p style={{ color: '#717171', textAlign: 'center', margin: '30px 0' }}>No trips booked yet.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {myBookings.map((b) => (
-                  <div
-                    key={b._id}
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <b style={{ fontSize: '15px', color: '#111827' }}>{b.listing?.title || 'Reserved Stay'}</b>
-                      <span style={{
-                        fontSize: '11px',
-                        textTransform: 'uppercase',
-                        fontWeight: 'bold',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: b.status === 'confirmed' ? '#dcfce7' : '#fef9c3',
-                        color: b.status === 'confirmed' ? '#15803d' : '#854d0e'
-                      }}>
-                        {b.status || 'Confirmed'}
-                      </span>
-                    </div>
-                    <p style={{ margin: '2px 0', fontSize: '13px', color: '#4b5563' }}>
-                      📍 {b.listing?.location} · {b.guests} guest(s)
-                    </p>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
-                      📅 {new Date(b.startDate).toLocaleDateString()} &rarr; {new Date(b.endDate).toLocaleDateString()}
-                    </p>
-                    <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: 'bold', color: '#111827' }}>
-                      Total Paid: ₹{b.totalPrice?.toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              myBookings.map((b) => (
+                <div key={b._id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '16px', marginBottom: '12px', backgroundColor: '#f9fafb' }}>
+                  <b style={{ fontSize: '15px' }}>{b.listing?.title}</b>
+                  <p style={{ margin: '4px 0', fontSize: '13px', color: '#6b7280' }}>📍 {b.listing?.location} · {b.guests} guest(s)</p>
+                  <p style={{ margin: '4px 0', fontSize: '13px', color: '#6b7280' }}>📅 {b.startDate} &rarr; {b.endDate}</p>
+                  <p style={{ margin: '6px 0 0 0', fontWeight: 'bold' }}>Total: ₹{b.totalPrice?.toLocaleString()}</p>
+                </div>
+              ))
             )}
           </div>
         </div>
       )}
-
-      {/* 5. Auth Modal */}
-      {showModal && (
-        <div 
-          onClick={() => setShowModal(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              padding: '28px',
-              width: '90%',
-              maxWidth: '380px',
-              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>
-                {isLogin ? 'Log In' : 'Sign Up'}
-              </h2>
-              <button 
-                type="button" 
-                onClick={() => setShowModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {error && (
-              <div style={{
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                marginBottom: '16px'
-              }}>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {!isLogin && (
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Full Name"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
-                />
-              )}
-
-              <input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
-              />
-
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
-              />
-
-              {!isLogin && (
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', backgroundColor: '#fff' }}
-                >
-                  <option value="guest">Guest (Book Stays)</option>
-                  <option value="host">Host (List Properties)</option>
-                </select>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  padding: '12px',
-                  backgroundColor: '#FF385C',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  fontSize: '15px',
-                  marginTop: '6px'
-                }}
-              >
-                {loading ? 'Please wait...' : isLogin ? 'Log In' : 'Create Account'}
-              </button>
-            </form>
-
-            <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#6b7280' }}>
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <span
-                onClick={() => { setIsLogin(!isLogin); setError(''); }}
-                style={{ color: '#FF385C', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                {isLogin ? 'Sign Up' : 'Log In'}
-              </span>
-            </p>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
