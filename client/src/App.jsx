@@ -72,7 +72,7 @@ const DEFAULT_LISTINGS = [
     category: 'Cabins',
     location: 'Munnar',
     pricePerNight: 5200,
-    maxGuests = 6,
+    maxGuests: 6,
     ratingsAverage: 4.95,
     host: { name: 'Eldo George' },
     images: [
