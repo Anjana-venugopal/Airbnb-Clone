@@ -3,7 +3,6 @@ import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix Leaflet marker icons when bundled with Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -52,14 +51,21 @@ export default function App() {
   const [fetchingListings, setFetchingListings] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
 
-  // Day 12 Booking Engine State
+  // Booking State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [bookingGuests, setBookingGuests] = useState(1);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingFeedback, setBookingFeedback] = useState(null); // { type: 'success' | 'error', msg: string }
+  const [bookingFeedback, setBookingFeedback] = useState(null);
   const [myBookings, setMyBookings] = useState([]);
   const [showBookingsModal, setShowBookingsModal] = useState(false);
+
+  // Day 13: Reviews State
+  const [reviews, setReviews] = useState([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState(null);
 
   // Auth Form State
   const [formData, setFormData] = useState({
@@ -81,6 +87,13 @@ export default function App() {
     fetchListings();
   }, [selectedCategory]);
 
+  // Load reviews whenever a listing is selected
+  useEffect(() => {
+    if (selectedListing) {
+      fetchListingReviews(selectedListing._id);
+    }
+  }, [selectedListing]);
+
   const fetchListings = async (search = searchLocation) => {
     setFetchingListings(true);
     try {
@@ -97,6 +110,47 @@ export default function App() {
     }
   };
 
+  const fetchListingReviews = async (listingId) => {
+    try {
+      const res = await api.get(`/reviews/${listingId}`);
+      setReviews(res.data.reviews || []);
+    } catch (err) {
+      setReviews([]);
+    }
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
+    if (!reviewComment.trim()) return;
+
+    setReviewSubmitting(true);
+    setReviewFeedback(null);
+
+    try {
+      await api.post('/reviews', {
+        listingId: selectedListing._id,
+        rating: Number(reviewRating),
+        comment: reviewComment.trim(),
+      });
+
+      setReviewFeedback({ type: 'success', msg: 'Review published successfully!' });
+      setReviewComment('');
+      fetchListingReviews(selectedListing._id);
+      fetchListings(); // Refresh average rating
+    } catch (err) {
+      setReviewFeedback({
+        type: 'error',
+        msg: err.response?.data?.message || 'Could not submit review.',
+      });
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   const fetchUserBookings = async () => {
     if (!user) return;
     try {
@@ -104,7 +158,7 @@ export default function App() {
       setMyBookings(res.data.bookings || []);
       setShowBookingsModal(true);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to fetch your bookings');
+      alert(err.response?.data?.message || 'Failed to fetch bookings');
     }
   };
 
@@ -131,7 +185,7 @@ export default function App() {
       setUser(res.data.user);
       setShowModal(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Authentication request failed.');
+      setError(err.response?.data?.message || 'Authentication failed.');
     } finally {
       setLoading(false);
     }
@@ -144,7 +198,6 @@ export default function App() {
     setMyBookings([]);
   };
 
-  // Stay calculation
   const calculateTotal = () => {
     if (!startDate || !endDate || !selectedListing) return { nights: 0, total: 0 };
     const start = new Date(startDate);
@@ -160,7 +213,6 @@ export default function App() {
 
   const { nights, total } = calculateTotal();
 
-  // Day 12 Booking Submission with Collision Defense Handling
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
     setBookingFeedback(null);
@@ -171,7 +223,7 @@ export default function App() {
     }
 
     if (!startDate || !endDate) {
-      setBookingFeedback({ type: 'error', msg: 'Please select both check-in and checkout dates.' });
+      setBookingFeedback({ type: 'error', msg: 'Please select both dates.' });
       return;
     }
 
@@ -197,8 +249,10 @@ export default function App() {
       setStartDate('');
       setEndDate('');
     } catch (err) {
-      const collisionMsg = err.response?.data?.message || 'This property is already booked for these dates. Please choose another date range.';
-      setBookingFeedback({ type: 'error', msg: collisionMsg });
+      setBookingFeedback({
+        type: 'error',
+        msg: err.response?.data?.message || 'Listing is already booked for these dates.',
+      });
     } finally {
       setBookingLoading(false);
     }
@@ -349,7 +403,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Main View Area */}
+      {/* 2. Main Body */}
       {selectedListing ? (
         /* DETAIL VIEW */
         <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '24px 20px 60px' }}>
@@ -375,7 +429,7 @@ export default function App() {
             {selectedListing.title}
           </h1>
           <p style={{ color: '#717171', fontSize: '15px', margin: '0 0 20px 0' }}>
-            ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
+            ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} ({reviews.length} reviews) · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
           </p>
 
           {/* Photo Gallery Grid */}
@@ -426,7 +480,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Two-Column Details & Reservation Engine */}
+          {/* Two-Column Details & Reservation Widget */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '60px', alignItems: 'start' }}>
             <div>
               <div style={{ paddingBottom: '24px', borderBottom: '1px solid #ebebeb' }}>
@@ -445,8 +499,8 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Map View */}
-              <div style={{ padding: '28px 0' }}>
+              {/* Map */}
+              <div style={{ padding: '28px 0', borderBottom: '1px solid #ebebeb' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Where you will be</h3>
                 <div style={{
                   height: '340px',
@@ -464,7 +518,7 @@ export default function App() {
                     style={{ height: '100%', width: '100%', minHeight: '340px' }}
                   >
                     <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      attribution='&copy; OpenStreetMap contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     <Marker position={getCoordinates(selectedListing)}>
@@ -475,9 +529,137 @@ export default function App() {
                   </MapContainer>
                 </div>
               </div>
+
+              {/* DAY 13: Reviews Section */}
+              <div style={{ padding: '28px 0' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 20px 0' }}>
+                  ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} · {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+                </h3>
+
+                {/* Add Review Form */}
+                <div style={{
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  backgroundColor: '#f9fafb',
+                  marginBottom: '28px'
+                }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Leave a Review</h4>
+
+                  {reviewFeedback && (
+                    <div style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      marginBottom: '12px',
+                      backgroundColor: reviewFeedback.type === 'success' ? '#ecfdf5' : '#fee2e2',
+                      color: reviewFeedback.type === 'success' ? '#047857' : '#b91c1c'
+                    }}>
+                      {reviewFeedback.msg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleReviewSubmit}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563' }}>Rating:</span>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            color: star <= reviewRating ? '#f59e0b' : '#d1d5db',
+                            padding: '0 2px'
+                          }}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      required
+                      rows="3"
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="Share details of your experience..."
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        resize: 'vertical'
+                      }}
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={reviewSubmitting}
+                      style={{
+                        marginTop: '10px',
+                        padding: '8px 18px',
+                        backgroundColor: '#222222',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {reviewSubmitting ? 'Posting...' : 'Submit Review'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Display Reviews List */}
+                {reviews.length === 0 ? (
+                  <p style={{ color: '#717171', fontSize: '14px' }}>No reviews yet. Be the first to leave one!</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    {reviews.map((r) => (
+                      <div key={r._id} style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                          <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            backgroundColor: '#e5e7eb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            color: '#4b5563'
+                          }}>
+                            {r.user?.name ? r.user.name[0].toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                              {r.user?.name || 'Guest'}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                              {'★'.repeat(r.rating)} · {new Date(r.createdAt || Date.now()).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>
+                          {r.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Sticky Reservation Widget (Day 12 Submission & Collision Alert) */}
+            {/* Booking Card */}
             <div style={{
               position: 'sticky',
               top: '110px',
@@ -497,7 +679,6 @@ export default function App() {
                 </span>
               </div>
 
-              {/* Collision / Success Feedback Banner */}
               {bookingFeedback && (
                 <div style={{
                   padding: '12px 14px',
@@ -506,15 +687,13 @@ export default function App() {
                   marginBottom: '16px',
                   backgroundColor: bookingFeedback.type === 'success' ? '#ecfdf5' : '#fee2e2',
                   color: bookingFeedback.type === 'success' ? '#047857' : '#b91c1c',
-                  border: `1px solid ${bookingFeedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
-                  lineHeight: '1.4'
+                  border: `1px solid ${bookingFeedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`
                 }}>
                   <b>{bookingFeedback.type === 'success' ? '✓ ' : '✕ '}</b>
                   {bookingFeedback.msg}
                 </div>
               )}
 
-              {/* Form Controls */}
               <form onSubmit={handleBookingSubmit}>
                 <div style={{ border: '1px solid #b0b0b0', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #b0b0b0' }}>
@@ -567,8 +746,7 @@ export default function App() {
                     borderRadius: '8px',
                     fontWeight: 'bold',
                     fontSize: '16px',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease'
+                    cursor: 'pointer'
                   }}
                 >
                   {bookingLoading ? 'Checking Availability...' : user ? 'Reserve' : 'Log in to Reserve'}
@@ -714,7 +892,7 @@ export default function App() {
         </>
       )}
 
-      {/* 3. My Bookings Modal (Day 12 Inspection Drawer) */}
+      {/* 3. My Bookings Modal */}
       {showBookingsModal && (
         <div
           onClick={() => setShowBookingsModal(false)}
