@@ -3,6 +3,7 @@ import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
+// Fix Leaflet marker icons when bundled with Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -31,10 +32,10 @@ const CATEGORIES = [
 ];
 
 const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80'
 ];
 
 export default function App() {
@@ -143,9 +144,10 @@ export default function App() {
       listing?.locationGeo?.coordinates?.length === 2 &&
       (listing.locationGeo.coordinates[0] !== 0 || listing.locationGeo.coordinates[1] !== 0)
     ) {
+      // MongoDB stores GeoJSON as [longitude, latitude]; Leaflet needs [latitude, longitude]
       return [listing.locationGeo.coordinates[1], listing.locationGeo.coordinates[0]];
     }
-    return [9.9312, 76.2673];
+    return [9.9312, 76.2673]; // Fallback to Kochi, Kerala
   };
 
   const resolveImage = (item, index) => {
@@ -267,11 +269,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Main Content Area */}
+      {/* 2. Main View Area */}
       {selectedListing ? (
-        /* DETAIL PAGE */
+        /* DETAIL VIEW */
         <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '24px 20px 60px' }}>
-          
           <button
             onClick={() => setSelectedListing(null)}
             style={{
@@ -302,77 +303,51 @@ export default function App() {
             display: 'flex',
             gap: '12px',
             width: '100%',
-            height: '400px',
+            height: '420px',
             borderRadius: '16px',
             overflow: 'hidden',
             marginBottom: '36px',
-            backgroundColor: '#e5e7eb'
+            backgroundColor: '#f3f4f6'
           }}>
-            {/* Left Primary Hero Image */}
             <div style={{ flex: '2', height: '100%', position: 'relative' }}>
               <img
                 src={resolveImage(selectedListing, 0)}
                 alt="Main View"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = 'https://picsum.photos/id/1018/1000/600';
+                  e.target.src = FALLBACK_IMAGES[0];
                 }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  minHeight: '400px',
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
             </div>
-
-            {/* Right Two Stacked Images */}
-            <div style={{
-              flex: '1',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              height: '100%'
-            }}>
-              <div style={{ flex: '1', height: '194px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+              <div style={{ flex: '1', position: 'relative', overflow: 'hidden' }}>
                 <img
                   src={resolveImage(selectedListing, 1)}
                   alt="Angle 2"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = 'https://picsum.photos/id/1015/600/400';
+                    e.target.src = FALLBACK_IMAGES[1];
                   }}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               </div>
-              <div style={{ flex: '1', height: '194px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ flex: '1', position: 'relative', overflow: 'hidden' }}>
                 <img
                   src={resolveImage(selectedListing, 2)}
                   alt="Angle 3"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = 'https://picsum.photos/id/1019/600/400';
+                    e.target.src = FALLBACK_IMAGES[2];
                   }}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
-                />d
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Two-Column Details and Booking Card */}
+          {/* Two-Column Details & Reservation Card */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '60px', alignItems: 'start' }}>
-            
             <div>
               <div style={{ paddingBottom: '24px', borderBottom: '1px solid #ebebeb' }}>
                 <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#222222', margin: '0 0 6px 0' }}>
@@ -390,15 +365,23 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Map Section */}
+              {/* Leaflet Interactive Map */}
               <div style={{ padding: '28px 0' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Where you will be</h3>
-                <div style={{ height: '320px', width: '100%', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '340px',
+                  width: '100%',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  position: 'relative'
+                }}>
                   <MapContainer
                     center={getCoordinates(selectedListing)}
                     zoom={13}
                     scrollWheelZoom={false}
-                    style={{ height: '100%', width: '100%' }}
+                    style={{ height: '100%', width: '100%', minHeight: '340px' }}
                   >
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -464,7 +447,7 @@ export default function App() {
                     setShowModal(true);
                     return;
                   }
-                  alert(`Dates ready for reservation on Day 12! Total nights: ${nights}`);
+                  alert(`Dates ready for reservation! Total nights: ${nights}`);
                 }}
                 style={{
                   width: '100%',
@@ -494,12 +477,10 @@ export default function App() {
                 </div>
               )}
             </div>
-
           </div>
-
         </main>
       ) : (
-        /* DISCOVERY GRID */
+        /* DISCOVERY FEED */
         <>
           <div style={{
             display: 'flex',
@@ -537,7 +518,7 @@ export default function App() {
             ) : listings.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px 20px' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#222222', margin: '0 0 8px 0' }}>No exact matches found</h3>
-                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Try clearing filters.</p>
+                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Try clearing filters or run the database seeder.</p>
                 <button
                   onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
                   style={{
@@ -583,7 +564,10 @@ export default function App() {
                       <img
                         src={resolveImage(item, 0)}
                         alt={item.title}
-                        onError={(e) => { e.target.src = FALLBACK_IMAGES[0]; }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = FALLBACK_IMAGES[0];
+                        }}
                         style={{
                           position: 'absolute',
                           top: 0,
@@ -619,7 +603,7 @@ export default function App() {
         </>
       )}
 
-      {/* Auth Modal */}
+      {/* 3. Auth Modal */}
       {showModal && (
         <div 
           onClick={() => setShowModal(false)}
