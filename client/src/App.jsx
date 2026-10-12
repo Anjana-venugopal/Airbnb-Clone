@@ -60,12 +60,29 @@ export default function App() {
   const [myBookings, setMyBookings] = useState([]);
   const [showBookingsModal, setShowBookingsModal] = useState(false);
 
-  // Day 13: Reviews State
+  // Reviews State
   const [reviews, setReviews] = useState([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewFeedback, setReviewFeedback] = useState(null);
+
+  // Day 14: Host Listing Creator State
+  const [showHostModal, setShowHostModal] = useState(false);
+  const [hostSubmitting, setHostSubmitting] = useState(false);
+  const [hostError, setHostError] = useState('');
+  const [newListing, setNewListing] = useState({
+    title: '',
+    description: '',
+    category: 'Lakefront',
+    location: '',
+    pricePerNight: '',
+    maxGuests: 2,
+    imageUrl1: '',
+    imageUrl2: '',
+    latitude: 9.9312,
+    longitude: 76.2673,
+  });
 
   // Auth Form State
   const [formData, setFormData] = useState({
@@ -87,7 +104,6 @@ export default function App() {
     fetchListings();
   }, [selectedCategory]);
 
-  // Load reviews whenever a listing is selected
   useEffect(() => {
     if (selectedListing) {
       fetchListingReviews(selectedListing._id);
@@ -140,7 +156,7 @@ export default function App() {
       setReviewFeedback({ type: 'success', msg: 'Review published successfully!' });
       setReviewComment('');
       fetchListingReviews(selectedListing._id);
-      fetchListings(); // Refresh average rating
+      fetchListings();
     } catch (err) {
       setReviewFeedback({
         type: 'error',
@@ -196,6 +212,66 @@ export default function App() {
     localStorage.removeItem('user');
     setUser(null);
     setMyBookings([]);
+  };
+
+  const handleOpenHostModal = () => {
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
+    if (user.role !== 'host') {
+      alert('Your current account has the "guest" role. Please log in or register with the "host" role to publish listings.');
+      return;
+    }
+    setHostError('');
+    setShowHostModal(true);
+  };
+
+  const handleCreateListing = async (e) => {
+    e.preventDefault();
+    setHostSubmitting(true);
+    setHostError('');
+
+    try {
+      const images = [];
+      if (newListing.imageUrl1.trim()) images.push(newListing.imageUrl1.trim());
+      if (newListing.imageUrl2.trim()) images.push(newListing.imageUrl2.trim());
+
+      const payload = {
+        title: newListing.title,
+        description: newListing.description,
+        category: newListing.category,
+        location: newListing.location,
+        pricePerNight: Number(newListing.pricePerNight),
+        maxGuests: Number(newListing.maxGuests),
+        images,
+        locationGeo: {
+          type: 'Point',
+          coordinates: [Number(newListing.longitude), Number(newListing.latitude)],
+        },
+      };
+
+      await api.post('/listings', payload);
+      setShowHostModal(false);
+      setNewListing({
+        title: '',
+        description: '',
+        category: 'Lakefront',
+        location: '',
+        pricePerNight: '',
+        maxGuests: 2,
+        imageUrl1: '',
+        imageUrl2: '',
+        latitude: 9.9312,
+        longitude: 76.2673,
+      });
+      fetchListings();
+      alert('Your property is now listed live on Airbnb!');
+    } catch (err) {
+      setHostError(err.response?.data?.message || 'Failed to publish listing. Check all fields.');
+    } finally {
+      setHostSubmitting(false);
+    }
   };
 
   const calculateTotal = () => {
@@ -343,7 +419,21 @@ export default function App() {
           </div>
         </form>
 
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <span
+            onClick={handleOpenHostModal}
+            style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              color: '#222222',
+              padding: '8px 12px',
+              borderRadius: '20px'
+            }}
+          >
+            Airbnb your home
+          </span>
+
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button
@@ -363,7 +453,7 @@ export default function App() {
                 My Bookings
               </button>
               <span style={{ fontSize: '14px', fontWeight: '600', color: '#222222' }}>
-                {user.name.split(' ')[0]}
+                {user.name.split(' ')[0]} ({user.role})
               </span>
               <button
                 type="button"
@@ -403,7 +493,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Main Body */}
+      {/* 2. Main Content Area */}
       {selectedListing ? (
         /* DETAIL VIEW */
         <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '24px 20px 60px' }}>
@@ -432,7 +522,7 @@ export default function App() {
             ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} ({reviews.length} reviews) · <span style={{ textDecoration: 'underline', fontWeight: '500' }}>{selectedListing.location}</span>
           </p>
 
-          {/* Photo Gallery Grid */}
+          {/* Photo Gallery */}
           <div style={{
             display: 'flex',
             gap: '12px',
@@ -530,13 +620,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* DAY 13: Reviews Section */}
+              {/* Reviews */}
               <div style={{ padding: '28px 0' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 20px 0' }}>
                   ★ {selectedListing.ratingsAverage ? selectedListing.ratingsAverage.toFixed(1) : 'New'} · {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
                 </h3>
 
-                {/* Add Review Form */}
                 <div style={{
                   border: '1px solid #e5e7eb',
                   borderRadius: '12px',
@@ -619,7 +708,6 @@ export default function App() {
                   </form>
                 </div>
 
-                {/* Display Reviews List */}
                 {reviews.length === 0 ? (
                   <p style={{ color: '#717171', fontSize: '14px' }}>No reviews yet. Be the first to leave one!</p>
                 ) : (
@@ -807,7 +895,7 @@ export default function App() {
             ) : listings.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px 20px' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#222222', margin: '0 0 8px 0' }}>No exact matches found</h3>
-                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Try clearing filters or run the database seeder.</p>
+                <p style={{ color: '#717171', fontSize: '14px', margin: '0 0 16px 0' }}>Click "Airbnb your home" above to create one!</p>
                 <button
                   onClick={() => { setSelectedCategory('All'); setSearchLocation(''); fetchListings(''); }}
                   style={{
@@ -892,7 +980,208 @@ export default function App() {
         </>
       )}
 
-      {/* 3. My Bookings Modal */}
+      {/* 3. Day 14: Host Property Publishing Modal */}
+      {showHostModal && (
+        <div
+          onClick={() => setShowHostModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '28px',
+              width: '90%',
+              maxWidth: '540px',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>
+                Airbnb Your Home
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowHostModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {hostError && (
+              <div style={{
+                backgroundColor: '#fee2e2',
+                color: '#b91c1c',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                marginBottom: '16px'
+              }}>
+                {hostError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateListing} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Coconut Palms Lakefront Villa"
+                  value={newListing.title}
+                  onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Description</label>
+                <textarea
+                  required
+                  rows="3"
+                  placeholder="Describe what makes your space special..."
+                  value={newListing.description}
+                  onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Category</label>
+                  <select
+                    value={newListing.category}
+                    onChange={(e) => setNewListing({ ...newListing, category: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', backgroundColor: '#fff' }}
+                  >
+                    {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Location / City</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Wayanad"
+                    value={newListing.location}
+                    onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Price Per Night (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="100"
+                    placeholder="3500"
+                    value={newListing.pricePerNight}
+                    onChange={(e) => setNewListing({ ...newListing, pricePerNight: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Max Guests</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="30"
+                    value={newListing.maxGuests}
+                    onChange={(e) => setNewListing({ ...newListing, maxGuests: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Primary Photo URL (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={newListing.imageUrl1}
+                  onChange={(e) => setNewListing({ ...newListing, imageUrl1: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Secondary Photo URL (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={newListing.imageUrl2}
+                  onChange={(e) => setNewListing({ ...newListing, imageUrl2: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newListing.latitude}
+                    onChange={(e) => setNewListing({ ...newListing, latitude: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#4b5563', marginBottom: '4px' }}>Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newListing.longitude}
+                    onChange={(e) => setNewListing({ ...newListing, longitude: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={hostSubmitting}
+                style={{
+                  marginTop: '10px',
+                  padding: '14px',
+                  backgroundColor: '#FF385C',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '15px',
+                  cursor: 'pointer'
+                }}
+              >
+                {hostSubmitting ? 'Publishing...' : 'Publish Listing'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. My Bookings Modal */}
       {showBookingsModal && (
         <div
           onClick={() => setShowBookingsModal(false)}
@@ -979,7 +1268,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 4. Auth Modal */}
+      {/* 5. Auth Modal */}
       {showModal && (
         <div 
           onClick={() => setShowModal(false)}
