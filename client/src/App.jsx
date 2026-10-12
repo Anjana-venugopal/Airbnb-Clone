@@ -35,7 +35,7 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
   'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80'
+  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80',
 ];
 
 export default function App() {
@@ -45,15 +45,23 @@ export default function App() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Discovery State
   const [listings, setListings] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchLocation, setSearchLocation] = useState('');
   const [fetchingListings, setFetchingListings] = useState(true);
   const [selectedListing, setSelectedListing] = useState(null);
 
+  // Day 12 Booking Engine State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [bookingGuests, setBookingGuests] = useState(1);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingFeedback, setBookingFeedback] = useState(null); // { type: 'success' | 'error', msg: string }
+  const [myBookings, setMyBookings] = useState([]);
+  const [showBookingsModal, setShowBookingsModal] = useState(false);
 
+  // Auth Form State
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -86,6 +94,17 @@ export default function App() {
       console.error('Failed to load listings:', err);
     } finally {
       setFetchingListings(false);
+    }
+  };
+
+  const fetchUserBookings = async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/bookings/my-bookings');
+      setMyBookings(res.data.bookings || []);
+      setShowBookingsModal(true);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to fetch your bookings');
     }
   };
 
@@ -122,8 +141,10 @@ export default function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setMyBookings([]);
   };
 
+  // Stay calculation
   const calculateTotal = () => {
     if (!startDate || !endDate || !selectedListing) return { nights: 0, total: 0 };
     const start = new Date(startDate);
@@ -139,15 +160,58 @@ export default function App() {
 
   const { nights, total } = calculateTotal();
 
+  // Day 12 Booking Submission with Collision Defense Handling
+  const handleBookingSubmit = async (e) => {
+    e.preventDefault();
+    setBookingFeedback(null);
+
+    if (!user) {
+      setShowModal(true);
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      setBookingFeedback({ type: 'error', msg: 'Please select both check-in and checkout dates.' });
+      return;
+    }
+
+    if (nights <= 0) {
+      setBookingFeedback({ type: 'error', msg: 'Checkout date must be after check-in date.' });
+      return;
+    }
+
+    setBookingLoading(true);
+    try {
+      const res = await api.post('/bookings', {
+        listingId: selectedListing._id,
+        startDate,
+        endDate,
+        guests: Number(bookingGuests),
+        totalPrice: total,
+      });
+
+      setBookingFeedback({
+        type: 'success',
+        msg: `Booking confirmed! Reservation ID: ${res.data.booking._id.slice(-6)}`,
+      });
+      setStartDate('');
+      setEndDate('');
+    } catch (err) {
+      const collisionMsg = err.response?.data?.message || 'This property is already booked for these dates. Please choose another date range.';
+      setBookingFeedback({ type: 'error', msg: collisionMsg });
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   const getCoordinates = (listing) => {
     if (
       listing?.locationGeo?.coordinates?.length === 2 &&
       (listing.locationGeo.coordinates[0] !== 0 || listing.locationGeo.coordinates[1] !== 0)
     ) {
-      // MongoDB stores GeoJSON as [longitude, latitude]; Leaflet needs [latitude, longitude]
       return [listing.locationGeo.coordinates[1], listing.locationGeo.coordinates[0]];
     }
-    return [9.9312, 76.2673]; // Fallback to Kochi, Kerala
+    return [9.9312, 76.2673];
   };
 
   const resolveImage = (item, index) => {
@@ -161,7 +225,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh', backgroundColor: '#ffffff' }}>
       
-      {/* 1. Header */}
+      {/* 1. Navbar */}
       <header style={{
         display: 'flex',
         alignItems: 'center',
@@ -227,7 +291,23 @@ export default function App() {
 
         <div>
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={fetchUserBookings}
+                style={{
+                  padding: '7px 14px',
+                  backgroundColor: '#f7f7f7',
+                  color: '#222',
+                  border: '1px solid #dddddd',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                My Bookings
+              </button>
               <span style={{ fontSize: '14px', fontWeight: '600', color: '#222222' }}>
                 {user.name.split(' ')[0]}
               </span>
@@ -274,7 +354,7 @@ export default function App() {
         /* DETAIL VIEW */
         <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '24px 20px 60px' }}>
           <button
-            onClick={() => setSelectedListing(null)}
+            onClick={() => { setSelectedListing(null); setBookingFeedback(null); }}
             style={{
               background: 'none',
               border: 'none',
@@ -346,7 +426,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Two-Column Details & Reservation Card */}
+          {/* Two-Column Details & Reservation Engine */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '60px', alignItems: 'start' }}>
             <div>
               <div style={{ paddingBottom: '24px', borderBottom: '1px solid #ebebeb' }}>
@@ -365,7 +445,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Leaflet Interactive Map */}
+              {/* Map View */}
               <div style={{ padding: '28px 0' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Where you will be</h3>
                 <div style={{
@@ -397,7 +477,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Booking Card */}
+            {/* Sticky Reservation Widget (Day 12 Submission & Collision Alert) */}
             <div style={{
               position: 'sticky',
               top: '110px',
@@ -417,52 +497,83 @@ export default function App() {
                 </span>
               </div>
 
-              <div style={{ border: '1px solid #b0b0b0', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                  <div style={{ padding: '8px 12px', borderRight: '1px solid #b0b0b0' }}>
-                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Check-in</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
-                    />
+              {/* Collision / Success Feedback Banner */}
+              {bookingFeedback && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  marginBottom: '16px',
+                  backgroundColor: bookingFeedback.type === 'success' ? '#ecfdf5' : '#fee2e2',
+                  color: bookingFeedback.type === 'success' ? '#047857' : '#b91c1c',
+                  border: `1px solid ${bookingFeedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+                  lineHeight: '1.4'
+                }}>
+                  <b>{bookingFeedback.type === 'success' ? '✓ ' : '✕ '}</b>
+                  {bookingFeedback.msg}
+                </div>
+              )}
+
+              {/* Form Controls */}
+              <form onSubmit={handleBookingSubmit}>
+                <div style={{ border: '1px solid #b0b0b0', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #b0b0b0' }}>
+                    <div style={{ padding: '8px 12px', borderRight: '1px solid #b0b0b0' }}>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Check-in</label>
+                      <input
+                        type="date"
+                        required
+                        value={startDate}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
+                      />
+                    </div>
+                    <div style={{ padding: '8px 12px' }}>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Checkout</label>
+                      <input
+                        type="date"
+                        required
+                        value={endDate}
+                        min={startDate || new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
+                      />
+                    </div>
                   </div>
+
                   <div style={{ padding: '8px 12px' }}>
-                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Checkout</label>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', color: '#222222', textTransform: 'uppercase' }}>Guests</label>
                     <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', paddingTop: '4px' }}
+                      type="number"
+                      min="1"
+                      max={selectedListing.maxGuests || 10}
+                      value={bookingGuests}
+                      onChange={(e) => setBookingGuests(e.target.value)}
+                      style={{ border: 'none', outline: 'none', width: '100%', fontSize: '14px', paddingTop: '2px' }}
                     />
                   </div>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    setShowModal(true);
-                    return;
-                  }
-                  alert(`Dates ready for reservation! Total nights: ${nights}`);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: '#FF385C',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  cursor: 'pointer'
-                }}
-              >
-                {user ? 'Reserve' : 'Log in to Reserve'}
-              </button>
+                <button
+                  type="submit"
+                  disabled={bookingLoading}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    backgroundColor: '#FF385C',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                >
+                  {bookingLoading ? 'Checking Availability...' : user ? 'Reserve' : 'Log in to Reserve'}
+                </button>
+              </form>
 
               {nights > 0 && (
                 <div style={{ marginTop: '20px', borderTop: '1px solid #ebebeb', paddingTop: '16px' }}>
@@ -544,7 +655,7 @@ export default function App() {
                 {listings.map((item) => (
                   <div
                     key={item._id}
-                    onClick={() => setSelectedListing(item)}
+                    onClick={() => { setSelectedListing(item); setBookingFeedback(null); }}
                     style={{
                       cursor: 'pointer',
                       display: 'flex',
@@ -603,7 +714,94 @@ export default function App() {
         </>
       )}
 
-      {/* 3. Auth Modal */}
+      {/* 3. My Bookings Modal (Day 12 Inspection Drawer) */}
+      {showBookingsModal && (
+        <div
+          onClick={() => setShowBookingsModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '28px',
+              width: '90%',
+              maxWidth: '540px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>
+                Your Reservations
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowBookingsModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {myBookings.length === 0 ? (
+              <p style={{ color: '#717171', fontSize: '14px', textAlign: 'center', margin: '40px 0' }}>
+                You have no upcoming trips booked yet.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {myBookings.map((b) => (
+                  <div
+                    key={b._id}
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <b style={{ fontSize: '15px', color: '#111827' }}>{b.listing?.title || 'Reserved Stay'}</b>
+                      <span style={{
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: b.status === 'confirmed' ? '#dcfce7' : '#fef9c3',
+                        color: b.status === 'confirmed' ? '#15803d' : '#854d0e'
+                      }}>
+                        {b.status || 'Confirmed'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '2px 0', fontSize: '13px', color: '#4b5563' }}>
+                      📍 {b.listing?.location} · {b.guests} guest(s)
+                    </p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                      📅 {new Date(b.startDate).toLocaleDateString()} &rarr; {new Date(b.endDate).toLocaleDateString()}
+                    </p>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: 'bold', color: '#111827' }}>
+                      Total Paid: ₹{b.totalPrice?.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Auth Modal */}
       {showModal && (
         <div 
           onClick={() => setShowModal(false)}
